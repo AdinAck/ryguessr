@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.101"
+dotenvy = "0.15.7"
+google_maps = "3.9.1"
+tokio = { version = "1.49.0", features = ["full"] }
