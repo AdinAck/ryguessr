@@ -37,7 +37,7 @@ server-build:
 # ── Quality ─────────────────────────────────────────────────────
 
 # Run all checks (test, clippy, fmt, lint)
-check: test clippy fmt-check lint
+ci: test clippy fmt-check lint
 
 # Run backend tests
 test:
