@@ -1,6 +1,6 @@
 use std::{env, fs::File, io::BufReader};
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use dotenvy::dotenv;
 use geo::{Area, BoundingRect, Contains, MultiPolygon, Polygon};
 use geojson::{FeatureCollection, GeoJson, Value};
@@ -17,7 +17,7 @@ struct Country {
     name: String,
     region: String,
     geometry: MultiPolygon<f64>,
-    area: f64,
+    population: f64,
 }
 
 impl Country {
@@ -82,13 +82,16 @@ fn load_countries(path: &str) -> anyhow::Result<Vec<Country>> {
             _ => continue,
         };
 
-        let area = multipolygon.unsigned_area();
+        let population = properties
+            .get("POP_EST")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
 
         countries.push(Country {
             name,
             region,
             geometry: multipolygon,
-            area,
+            population,
         });
     }
 
@@ -113,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Loaded {} countries", countries.len());
 
     // Pick random country
-    let weighted_dist = WeightedIndex::new(countries.iter().map(|c| c.area)).unwrap();
+    let weighted_dist = WeightedIndex::new(countries.iter().map(|c| c.population)).unwrap();
     let country = &countries[weighted_dist.sample(&mut rng)];
     info!("Selected country: {} ({})", country.name, country.region);
 
