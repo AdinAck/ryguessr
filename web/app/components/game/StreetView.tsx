@@ -18,7 +18,7 @@ const Streetview = () => {
         <StreetViewPanorama
           options={{
             visible: true,
-            position: defaultPosition,
+            pano: "CAoSFkNJSE0wb2dLRUlDQWdJRFd5N1dYUmc.",
             addressControl: false,
             enableCloseButton: false,
             fullscreenControl: false,

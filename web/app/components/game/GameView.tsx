@@ -17,7 +17,7 @@ export const GameView = () => {
         <Streetview />
       </div>
 
-      <div className="absolute bottom-5 left-5 h-64 w-80 z-10">
+      <div className="absolute bottom-5 left-5 w-40 md:w-64 lg:w-90 aspect-video z-10 opacity-90 transition-all duration-300 ease-in-out origin-bottom-left hover:w-[50vw]">
         <MapOverlay />
       </div>
 
