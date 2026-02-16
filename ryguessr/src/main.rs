@@ -1,3 +1,4 @@
-fn main() {
-    // more to come...
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    todo!()
 }

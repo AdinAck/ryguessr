@@ -2,3 +2,8 @@
 
 # .env
 **/.env
+.envrc
+.direnv
+
+# Nix build output
+result
