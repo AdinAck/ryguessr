@@ -1,0 +1,35 @@
+# CI workflows for the ryguessr server component
+
+set dotenv-load := true
+
+# List available recipes
+default:
+    @just --list
+
+# Build for release
+build:
+    cargo build --release
+
+# Run unit tests
+test:
+    cargo test
+
+# Run clippy
+clippy:
+    cargo clippy --all-targets -- --deny warnings
+
+# Check formatting
+fmt-check:
+    cargo fmt --check
+
+# Apply formatting
+fmt:
+    cargo fmt
+
+# Run backend service
+serve:
+    cargo run
+
+# Run backend service with auto-reload on file changes
+watch:
+    cargo watch -x run
