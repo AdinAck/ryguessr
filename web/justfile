@@ -1,0 +1,22 @@
+# CI workflows for the ryguessr web component
+
+set dotenv-load := true
+
+# List available recipes
+default:
+    @just --list
+
+# Build for production
+build:
+    npm run build
+
+# Serve locally for development
+dev:
+    npm run dev
+
+lint:
+    npm run lint
+
+# Install dependencies
+install:
+    npm install
