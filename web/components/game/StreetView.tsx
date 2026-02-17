@@ -1,8 +1,8 @@
 "use client"
 import { GoogleMap, StreetViewPanorama, useLoadScript } from "@react-google-maps/api";
-import { coordinates } from "@/types/coordinate_type";
+import { Location } from "@/types/coordinate_type";
 
-const Streetview = ({ initialLocation }: { initialLocation?: coordinates }) => {
+const Streetview = ({ initialLocation }: { initialLocation?: Location }) => {
   const { isLoaded } = useLoadScript({ googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "" });
 
   if (!isLoaded) {

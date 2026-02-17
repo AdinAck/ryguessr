@@ -2,21 +2,45 @@
 import { useLoadScript } from "@react-google-maps/api";
 import Streetview from "./StreetView";
 import { MapOverlay } from "./MapOverlay";
-import { coordinates } from "@/types/coordinate_type";
+import { Location } from "@/types/coordinate_type";
+import { useCallback, useState, useEffect } from "react"
 
-
-export const GameView = ({ initialLocation }: { initialLocation?: coordinates }) => {
+export const GameView = () => {
+  const [location, setLocation] = useState<Location | undefined>(undefined)
+  const [loading, setLoading] = useState<boolean>(false); // used for loading state, will add an animation or loading animation
 
   const { isLoaded } = useLoadScript({ googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "" });
 
-  if (!isLoaded) {
-    return <div>Loading.... UwU</div>;
-  }
+  const fetch_location = useCallback(async () => {
+    setLoading(true);
+    try {
+      const location_response = await fetch("/api/random-location");
+      if (!location_response.ok) throw new Error("Failed to fetch");
+
+      const location_json: Location = await location_response.json();
+      setLocation(location_json);
+
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    };
+
+  }, [])
+
+  useEffect(() => {
+    if (isLoaded) {
+      fetch_location();
+    };
+
+  }, [fetch_location, isLoaded]);
+
+  if (!isLoaded) return <div className="h-screen w-screen bg-black text-white flex items-center justify-center">Loading UwU...</div>;
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
       <div className="absolute inset-0 z-0">
-        <Streetview initialLocation={initialLocation} />
+        <Streetview initialLocation={location} />
       </div>
 
       <div className="flex flex-col gap-2 absolute bottom-5 left-5 w-40 md:w-64 lg:w-90 aspect-video z-10 opacity-90 transition-all duration-300 ease-in-out origin-bottom-left hover:w-[50vw] xl:hover:w-[40vw]">
