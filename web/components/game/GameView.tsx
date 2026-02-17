@@ -2,6 +2,7 @@
 import { useLoadScript } from "@react-google-maps/api";
 import Streetview from "./StreetView";
 import { MapOverlay } from "./MapOverlay";
+import { Button } from "../ui/button";
 
 export const GameView = () => {
 
@@ -17,8 +18,9 @@ export const GameView = () => {
         <Streetview />
       </div>
 
-      <div className="absolute bottom-5 left-5 w-40 md:w-64 lg:w-90 aspect-video z-10 opacity-90 transition-all duration-300 ease-in-out origin-bottom-left hover:w-[50vw]">
+      <div className="flex flex-col gap-2 absolute bottom-5 left-5 w-40 md:w-64 lg:w-90 aspect-video z-10 opacity-90 transition-all duration-300 ease-in-out origin-bottom-left hover:w-[40vw]">
         <MapOverlay />
+        <Button size={"default"} variant={"default"}> Guess </Button>
       </div>
 
     </main>
