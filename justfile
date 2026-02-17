@@ -8,7 +8,7 @@ default:
 
 # Run frontend and backend concurrently
 dev:
-    just web/dev & just server/watch & wait
+    just web/build & just server/watch & wait
 
 # Run continuous integration suite
 ci:
