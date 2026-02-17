@@ -26,6 +26,10 @@ fmt-check:
 fmt:
     cargo fmt
 
+# Download OSM data for a specific region (e.g., "europe", "north-america", "north-america/us/california")
+download region="":
+    cargo run --release --example setup_osm {{ if region != "" { "-- --region " + region } else { "" } }}
+
 # Run backend service
 serve:
     cargo run
