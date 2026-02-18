@@ -44,6 +44,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/api/random-location", get(routes::random::random_location))
+        .route("/api/submit", get(routes::score::submit_location))
         .with_state(state)
         .fallback_service(ServeDir::new("../web/out"));
 
