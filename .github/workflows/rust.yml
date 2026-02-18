@@ -1,0 +1,51 @@
+name: Rust
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup just
+        uses: extractions/setup-just@v3
+      - name: build
+        run: just server/build
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup just
+        uses: extractions/setup-just@v3
+      - name: test
+        run: just server/test
+
+  clippy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup just
+        uses: extractions/setup-just@v3
+      - name: clippy
+        run: just server/clippy
+
+  fmt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup just
+        uses: extractions/setup-just@v3
+      - name: fmt
+        run: just server/fmt-check
