@@ -251,15 +251,15 @@ async fn main() -> anyhow::Result<()> {
             r.pbf_url.is_some()
                 && !parent_ids.contains(&r.id)
                 && !has_slash_children(&r.id)
-                && !r
-                    .id
-                    .contains('-')
-                    .then(|| {
+                && !if r.id.contains('-') {
+                    {
                         // "us-midwest" -> check if "us/" sub-regions exist
                         let base = r.id.split('-').next().unwrap();
                         has_slash_children(base)
-                    })
-                    .unwrap_or(false)
+                    }
+                } else {
+                    false
+                }
         })
         .collect();
     leaves.sort_by(|a, b| a.id.cmp(&b.id));
