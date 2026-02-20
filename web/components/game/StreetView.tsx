@@ -2,12 +2,7 @@
 import { GoogleMap, StreetViewPanorama, useLoadScript } from "@react-google-maps/api";
 import { Location } from "@/types/coordinate_type";
 
-const Streetview = ({ initialLocation }: { initialLocation?: Location }) => {
-  const { isLoaded } = useLoadScript({ googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "" });
-
-  if (!isLoaded) {
-    return <div>Loading.... UwU</div>;
-  }
+const Streetview = ({ location }: { location?: Location }) => {
 
   const defaultPosition = { lat: 35.6586, lng: 139.7454 };
 
@@ -22,7 +17,7 @@ const Streetview = ({ initialLocation }: { initialLocation?: Location }) => {
         <StreetViewPanorama
           options={{
             visible: true,
-            position: initialLocation ? initialLocation : defaultPosition,
+            position: location ? location : defaultPosition,
             addressControl: false,
             enableCloseButton: false,
             fullscreenControl: false,

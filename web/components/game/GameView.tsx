@@ -8,6 +8,7 @@ import { useCallback, useState, useEffect } from "react"
 export const GameView = () => {
   const [location, setLocation] = useState<Location | undefined>(undefined)
   const [loading, setLoading] = useState<boolean>(false); // used for loading state, will add an animation or loading animation
+  const [hasGuessed, setHasGuessed] = useState<boolean>(false);
 
   const { isLoaded } = useLoadScript({ googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "" });
 
@@ -40,11 +41,14 @@ export const GameView = () => {
   return (
     <main className="relative h-screen w-screen overflow-hidden">
       <div className="absolute inset-0 z-0">
-        <Streetview initialLocation={location} />
+        <Streetview location={location} />
       </div>
 
-      <div className="flex flex-col gap-2 absolute bottom-5 left-5 w-40 md:w-64 lg:w-90 aspect-video z-10 opacity-90 transition-all duration-300 ease-in-out origin-bottom-left hover:w-[50vw] xl:hover:w-[40vw]">
-        <MapOverlay />
+      <div className={`bottom-5 left-5 flex flex-col gap-2 absolute z-10 aspect-video transition-all duration-300 origin-bottom-left ${hasGuessed
+          ? " w-[calc(100vw-2.5rem)] max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
+          : "w-40 md:w-64 lg:w-90 opacity-90 hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
+        }`}>
+        <MapOverlay location={location} hasGuessed={hasGuessed} setHasGuessed={setHasGuessed} />
       </div>
 
     </main>
