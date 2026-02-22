@@ -9,18 +9,23 @@ import { MapOverlayProps } from '@/types/map_overlay_props';
 export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayProps) => {
   const [selectedLocation, setSelectedLocation] = useState<google.maps.LatLngLiteral | null>(null);
 
-  const defaultPosition = { lat: 35.6586, lng: 139.7454 };
+  const { defaultPosition, locationIconOptions, userIconOptions, mapContainerStyle } = useMemo(() => {
+    return (
+      {
+        defaultPosition: { lat: 35.6586, lng: 139.7454 },
+        locationIconOptions: { width: 30, height: 30, url: "/svg/flag.svg", anchor: new google.maps.Point(15, 30) },
+        userIconOptions: { width: 30, height: 30, url: "/svg/user-map-pin.svg", anchor: new google.maps.Point(15, 30) },
+        mapContainerStyle: {width: "100%", height: "100%" },
+      }
+    );
 
-  const locationIconOptions = { width: 30, height: 30, url: "/svg/flag.svg" };
-  const userIconOptions = { width: 30, height: 30, url: "/svg/user-map-pin.svg" };
+  }, []) 
+
   const mapRef = useRef<google.maps.Map | null>(null);
 
   const mapOptions = useMemo(() => {
     return { draggableCursor: hasGuessed ? "move" : "crosshair", disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy", draggingCursor: "move", minZoom: 2 }
   }, [hasGuessed]);
-
-
-  const mapContainerStyle = { width: "100%", height: "100%" };
 
 
   const onMapClick = useCallback((e: google.maps.MapMouseEvent) => {
@@ -38,11 +43,11 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
 
   const handleMapPanOnGuess = () => {
     setHasGuessed(true);
-    if (location && selectedLocation && mapRef.current) {
+    if (defaultPosition && selectedLocation && mapRef.current) {
       const bounds = new window.google.maps.LatLngBounds();
-      bounds.extend(location);
+      bounds.extend(defaultPosition);
       bounds.extend(selectedLocation);
-      mapRef.current.fitBounds(bounds, 100);
+      mapRef.current.fitBounds(bounds, 0);
     };
 
   }
@@ -63,7 +68,8 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
             icon={userIconOptions}
 
           />)}
-          {hasGuessed && selectedLocation && (<MarkerF icon={locationIconOptions} position={location
+          {hasGuessed && selectedLocation && (<MarkerF icon={locationIconOptions} 
+            position={location
             ? location
             : defaultPosition} />)}
         </GoogleMap>
