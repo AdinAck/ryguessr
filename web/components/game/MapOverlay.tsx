@@ -43,9 +43,9 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
 
   const handleMapPanOnGuess = () => {
     setHasGuessed(true);
-    if (defaultPosition && selectedLocation && mapRef.current) {
+    if (location && selectedLocation && mapRef.current) {
       const bounds = new window.google.maps.LatLngBounds();
-      bounds.extend(defaultPosition);
+      bounds.extend(location);
       bounds.extend(selectedLocation);
       mapRef.current.fitBounds(bounds, 0);
     };
