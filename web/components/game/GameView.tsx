@@ -32,10 +32,12 @@ export const GameView = () => {
 
   useEffect(() => {
     if (isLoaded) {
-      const es = new EventSource('/api/random-location');
+      const es = new EventSource('/sse');
+      console.log(es);
 
-      es.addEventListener('update', (event) => {
+      es.addEventListener('location', (event) => {
         const location_data = JSON.parse(event.data);
+        console.log(location_data);
         setLocation(location_data);
       })
       return () => {
