@@ -10,13 +10,13 @@ use crate::state::AppState;
 
 const MAX_ATTEMPTS: usize = 100;
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct LocationResponse {
     pub lat: f64,
     pub lng: f64,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize, Debug)]
 pub struct ErrorResponse {
     pub error: String,
 }

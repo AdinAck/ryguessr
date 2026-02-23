@@ -1,9 +1,3 @@
-mod config;
-mod geo;
-mod routes;
-mod state;
-mod streetview;
-
 use std::path::Path;
 use std::sync::Arc;
 
@@ -12,11 +6,12 @@ use axum::routing::get;
 use log::info;
 use tower_http::services::ServeDir;
 
-use crate::config::Config;
-use crate::geo::regions::load_all_regions;
-use crate::geo::sampler::RandomLocationSampler;
-use crate::state::AppState;
-use crate::streetview::StreetViewClient;
+use ryguessr::config::Config;
+use ryguessr::geo::regions::load_all_regions;
+use ryguessr::geo::sampler::RandomLocationSampler;
+use ryguessr::routes;
+use ryguessr::state::AppState;
+use ryguessr::streetview::StreetViewClient;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
