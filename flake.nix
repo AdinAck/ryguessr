@@ -41,6 +41,7 @@
 
             # Tools
             just
+            watchexec
           ];
         };
       }
