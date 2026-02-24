@@ -1,17 +1,18 @@
-use std::path::Path;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
-use axum::Router;
-use axum::routing::get;
+use axum::{Router, routing::get};
 use log::info;
+use ryguessr::{
+    config::Config,
+    context::Context,
+    geo::{
+        engine::LocationEngine, regions::load_all_regions, sampler::RandomLocationSampler,
+        streetview::StreetViewClient,
+    },
+    routes,
+};
+use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
-
-use ryguessr::config::Config;
-use ryguessr::geo::regions::load_all_regions;
-use ryguessr::geo::sampler::RandomLocationSampler;
-use ryguessr::routes;
-use ryguessr::state::AppState;
-use ryguessr::streetview::StreetViewClient;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -29,17 +30,14 @@ async fn main() -> anyhow::Result<()> {
     let total: usize = regions.iter().map(|r| r.count).sum();
     info!("Loaded {} regions, {} total points", regions.len(), total);
 
-    let sampler = RandomLocationSampler::new(regions)?;
-    let streetview = StreetViewClient::new(config.google_maps_api_key);
-
-    let state = Arc::new(AppState {
-        sampler,
-        streetview,
-    });
+    let cx = Arc::new(RwLock::new(Context::empty(LocationEngine::new(
+        StreetViewClient::new(config.google_maps_api_key),
+        RandomLocationSampler::new(regions)?,
+    ))));
 
     let app = Router::new()
-        .route("/api/random-location", get(routes::random::random_location))
-        .with_state(state)
+        .route("/events", get(routes::events::sse_event_handler))
+        .with_state(cx)
         .fallback_service(ServeDir::new("../web/out"));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
