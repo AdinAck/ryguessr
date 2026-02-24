@@ -13,3 +13,10 @@ export default function Landing() {
     </main>
   )
 }
+
+
+// location
+// continuing
+// score
+// distance
+// real-coordinates
