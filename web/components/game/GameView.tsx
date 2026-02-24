@@ -1,54 +1,40 @@
 "use client"
-import { useLoadScript } from "@react-google-maps/api";
 import Streetview from "./StreetView";
 import { MapOverlay } from "./MapOverlay";
 import { Location } from "@/types/coordinate_type";
-import { useCallback, useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { EventSource } from "eventsource";
 
-export const GameView = () => {
+
+export const GameView = ({ userID }: { userID: string }) => {
   const [location, setLocation] = useState<Location | undefined>(undefined)
   const [loading, setLoading] = useState<boolean>(false); // used for loading state, will add an animation or loading animation
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
 
-  const { isLoaded } = useLoadScript({ googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "" });
-
-  // const fetch_location = useCallback(async () => {
-  //   setLoading(true);
-  //   try {
-  //     const location_response = await fetch("/api/random-location");
-  //     if (!location_response.ok) throw new Error("Failed to fetch");
-  //
-  //     const location_json: Location = await location_response.json();
-  //     setLocation(location_json);
-  //
-  //   } catch (error) {
-  //     console.log(error);
-  //   } finally {
-  //     setLoading(false);
-  //   };
-  //
-  // }, [])
-
   useEffect(() => {
-    if (isLoaded) {
-      const es = new EventSource('/sse');
-      console.log(es);
+    const es = new EventSource('/sse', {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          headers: {
+            ...init.headers,
+            Authorization: userID,
+          },
+        })
+    });
 
-      es.addEventListener('location', (event) => {
-        const location_data = JSON.parse(event.data);
-        console.log(location_data);
-        setLocation(location_data);
-      })
-      return () => {
-        es.close();
-      };
+    es.addEventListener('location', (event) => {
+      const location_data = JSON.parse(event.data);
+      setLocation(location_data);
+    })
+
+    return () => {
+      es.close();
     };
 
 
-  }, [isLoaded]);
+  }, []);
 
-  if (!isLoaded) return <div className="h-screen w-screen bg-black text-white flex items-center justify-center">Loading UwU...</div>;
 
   return (
     <main className="relative h-screen w-screen overflow-hidden">
