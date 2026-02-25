@@ -46,6 +46,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/events", get(routes::events::sse_event_handler))
         .route("/api/guess", post(routes::guess::guess_handler))
         .route("/api/next", post(routes::next::next_handler))
+        .route("/api/join", post(routes::join::join_handler))
         .with_state((cx, engine))
         .layer(TraceLayer::new_for_http())
         .fallback_service(ServeDir::new("../web/out"));

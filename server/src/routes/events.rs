@@ -9,7 +9,30 @@ use futures_util::{Stream, StreamExt, stream};
 use reqwest::StatusCode;
 use tokio::sync::RwLock;
 
-use crate::{Context, RoomEvent, geo::engine::LocationEngine, handle};
+use crate::{Context, RoomEvent, geo::engine::LocationEngine, handle, room};
+
+/// Guard that removes a member from their room when the SSE stream is dropped (client disconnects).
+struct DisconnectGuard {
+    context: Arc<RwLock<Context>>,
+    client_id: handle::Id,
+    room_id: room::Id,
+}
+
+impl Drop for DisconnectGuard {
+    fn drop(&mut self) {
+        let context = self.context.clone();
+        let client_id = self.client_id.clone();
+        let room_id = self.room_id.clone();
+        tokio::spawn(async move {
+            let mut cx = context.write().await;
+            if let Some(room) = cx.rooms.get_mut(&room_id) {
+                room.remove_member(&client_id);
+                tracing::info!(client_id = %*client_id, "client disconnected, removed from room");
+            }
+            cx.clients.remove(&client_id);
+        });
+    }
+}
 
 #[tracing::instrument(skip_all, fields(client_id = %*client_id))]
 pub async fn sse_event_handler(
@@ -18,7 +41,8 @@ pub async fn sse_event_handler(
 ) -> Result<Sse<impl Stream<Item = Result<sse::Event, axum::Error>>>, StatusCode> {
     let cx = context.read().await;
     let handle = cx.clients.get(&client_id).ok_or(StatusCode::UNAUTHORIZED)?;
-    let room = cx.rooms.get(&handle.room).ok_or(StatusCode::NOT_FOUND)?;
+    let room_id = handle.room.clone();
+    let room = cx.rooms.get(&room_id).ok_or(StatusCode::NOT_FOUND)?;
 
     let pano_id = room.location.pano_id.clone();
     let initial_event = stream::once(async {
@@ -29,7 +53,15 @@ pub async fn sse_event_handler(
     let mut rx = room.event_tx.subscribe();
     drop(cx);
 
+    let guard = DisconnectGuard {
+        context,
+        client_id,
+        room_id,
+    };
+
     let stream = async_stream::stream! {
+        // Hold the guard alive for the lifetime of the stream.
+        let _guard = guard;
         while let Ok(event) = rx.recv().await {
             match event.try_into() {
                 Ok(event_json) => yield Ok(event_json),

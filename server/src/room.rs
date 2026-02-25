@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use derive_more::{AsRef, Deref};
+use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
 use crate::{
@@ -46,6 +47,28 @@ impl Room {
             config: Config {},
             event_tx,
         }
+    }
+
+    pub fn add_member(&mut self, client_id: &handle::Id, username: String) {
+        let member_attrs = MemberAttributes {
+            username: username.clone(),
+            score: 0,
+            guess: None,
+            ready_next_round: false,
+        };
+        self.members.insert(client_id.clone(), member_attrs);
+
+        // Broadcast join event
+        let _ = self.event_tx.send(RoomEvent::PlayerJoined(username));
+    }
+
+    pub fn remove_member(&mut self, client_id: &handle::Id) {
+        let Some(member) = self.members.remove(client_id) else {
+            return;
+        };
+
+        // Broadcast leave event
+        let _ = self.event_tx.send(RoomEvent::PlayerLeft(member.username));
     }
 
     /// Handle a ready submission from a member of the room. This will broadcast if everyone is ready to move on to the next round.
@@ -142,7 +165,7 @@ pub struct MemberAttributes {
 }
 
 /// The unique identifier for a [`Room`].
-#[derive(Clone, AsRef, Deref, Hash, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, AsRef, Deref, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Id(String);
 
 impl Id {

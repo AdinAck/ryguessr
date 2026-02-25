@@ -4,19 +4,23 @@ use crate::{Coordinates, geo::PanoId};
 use axum::response::sse;
 use serde::Serialize;
 
-type PlayerName = String;
+type Username = String;
 
 #[derive(Clone, Serialize)]
 pub enum RoomEvent {
     RoundStart(PanoId),
     RoundEnd(RoundData),
+    PlayerJoined(Username),
+    PlayerLeft(Username),
 }
 
 impl RoomEvent {
     pub fn name(&self) -> &'static str {
         match self {
-            RoomEvent::RoundStart(_) => "round_start",
-            RoomEvent::RoundEnd(_) => "round_end",
+            RoomEvent::RoundStart(_) => "round-start",
+            RoomEvent::RoundEnd(_) => "round-end",
+            RoomEvent::PlayerJoined(_) => "player-joined",
+            RoomEvent::PlayerLeft(_) => "player-left",
         }
     }
 }
@@ -32,7 +36,7 @@ impl TryFrom<RoomEvent> for sse::Event {
 #[derive(Clone, Serialize)]
 pub struct RoundData {
     pub real_location: Coordinates,
-    pub player_results: HashMap<PlayerName, PlayerResults>,
+    pub player_results: HashMap<Username, PlayerResults>,
 }
 
 #[derive(Clone, Serialize)]
