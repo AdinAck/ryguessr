@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod engine;
 pub mod regions;
@@ -8,12 +8,12 @@ pub mod streetview;
 pub type PanoId = String;
 
 pub struct Location {
-    coordinates: Coordinates,
-    pano_id: PanoId,
+    pub coordinates: Coordinates,
+    pub pano_id: PanoId,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Coordinates {
-    lat: f64,
-    lng: f64,
+    pub lat: f64,
+    pub lng: f64,
 }

@@ -2,10 +2,10 @@ use std::{env, path::Path};
 
 use anyhow::Context;
 use dotenvy::dotenv;
-use tracing::{debug, info, trace};
 use memmap2::Mmap;
 use rand::distr::{Distribution, weighted::WeightedIndex};
 use reqwest::Client;
+use tracing::{debug, info, trace};
 
 /// Size of a single point: two f32s (lat, lng), 8 bytes.
 const POINT_SIZE: usize = 8;

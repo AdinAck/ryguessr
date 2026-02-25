@@ -1,6 +1,9 @@
 use std::{path::Path, sync::Arc};
 
-use axum::{Router, routing::get};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use ryguessr::{
     config::Config,
     context::Context,
@@ -32,14 +35,18 @@ async fn main() -> anyhow::Result<()> {
     let total: usize = regions.iter().map(|r| r.count).sum();
     info!("Loaded {} regions, {} total points", regions.len(), total);
 
-    let cx = Arc::new(RwLock::new(Context::empty(LocationEngine::new(
+    let engine = Arc::new(LocationEngine::new(
         StreetViewClient::new(config.google_maps_api_key),
         RandomLocationSampler::new(regions)?,
-    ))));
+    ));
+    let cx = Arc::new(RwLock::new(Context::empty()));
 
     let app = Router::new()
-        .route("/events", get(routes::events::sse_event_handler))
-        .with_state(cx)
+        .route("/api/init", post(routes::init::init_handler))
+        .route("/api/events", get(routes::events::sse_event_handler))
+        .route("/api/guess", post(routes::guess::guess_handler))
+        .route("/api/next", post(routes::next::next_handler))
+        .with_state((cx, engine))
         .layer(TraceLayer::new_for_http())
         .fallback_service(ServeDir::new("../web/out"));
 

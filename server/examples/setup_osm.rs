@@ -9,9 +9,9 @@ use std::{
 use anyhow::Context;
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
-use tracing::info;
 use osmpbf::{Element, ElementReader};
 use serde::Deserialize;
+use tracing::info;
 
 /// Highway tag values that represent drivable roads (where Street View cars go).
 const ROAD_HIGHWAY_TYPES: &[&str] = &[

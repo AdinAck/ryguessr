@@ -2,22 +2,22 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::Router;
 use axum::extract::State;
 use axum::response::Sse;
 use axum::response::sse::Event;
 use axum::routing::get;
-use axum::{Json, Router};
 use futures_util::Stream;
-use tracing::{debug, info};
-use ryguessr::routes::random::{ErrorResponse, LocationResponse};
 use tokio::sync::{RwLock, mpsc};
 use tokio_stream::wrappers::ReceiverStream;
 use tower_http::services::ServeDir;
+use tracing::{debug, info};
 
 use ryguessr::config::Config;
+use ryguessr::geo::Coordinates;
 use ryguessr::geo::regions::load_all_regions;
 use ryguessr::geo::sampler::RandomLocationSampler;
-use ryguessr::streetview::StreetViewClient;
+use ryguessr::geo::streetview::StreetViewClient;
 
 pub struct AppState {
     pub sampler: RandomLocationSampler,
@@ -62,20 +62,13 @@ async fn main() -> anyhow::Result<()> {
                 let state = state.read().await;
 
                 if !state.location_senders.is_empty() {
-                    let coords = random_location(&state).await;
+                    let result: Result<Coordinates, String> = random_location(&state).await;
 
                     for sender in &state.location_senders {
                         sender
-                            .send(
-                                coords
-                                    .clone()
-                                    .map_err(|e| axum::Error::new(e.error))
-                                    .and_then(|location_response| {
-                                        Event::default()
-                                            .event("location")
-                                            .json_data(location_response)
-                                    }),
-                            )
+                            .send(result.clone().map_err(axum::Error::new).and_then(|coords| {
+                                Event::default().event("location").json_data(coords)
+                            }))
                             .await
                             .unwrap();
                     }
@@ -99,21 +92,13 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn random_location(state: &AppState) -> Result<LocationResponse, ErrorResponse> {
+pub async fn random_location(state: &AppState) -> Result<Coordinates, String> {
     for _ in 0..MAX_ATTEMPTS {
         let (lat, lng) = state.sampler.sample();
         debug!("Trying point: {}, {}", lat, lng);
 
-        let result = state.streetview.find_panorama(lat, lng).await;
-
-        match result {
-            Ok(Some((pano_lat, pano_lng))) => {
-                return Ok(LocationResponse {
-                    lat: pano_lat,
-                    lng: pano_lng,
-                });
-            }
-            Ok(None) => continue,
+        match state.streetview.find_panorama(lat, lng).await {
+            Ok(location) => return Ok(location.coordinates),
             Err(e) => {
                 debug!("Street View API error: {}", e);
                 continue;
@@ -121,16 +106,13 @@ pub async fn random_location(state: &AppState) -> Result<LocationResponse, Error
         }
     }
 
-    Err(ErrorResponse {
-        error: format!("No panorama found after {} attempts", MAX_ATTEMPTS),
-    })
+    Err(format!("No panorama found after {} attempts", MAX_ATTEMPTS))
 }
 
 async fn sse_handler(
     State(state): State<Arc<RwLock<AppState>>>,
-    Json(data): Json<serde_json::Value>,
 ) -> Sse<impl Stream<Item = Result<Event, axum::Error>>> {
-    println!("Client connected with testimony: {data:?}.");
+    println!("Client connected.");
 
     let (tx, rx) = mpsc::channel(10);
 

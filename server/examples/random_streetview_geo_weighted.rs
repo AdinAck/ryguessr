@@ -4,7 +4,6 @@ use anyhow::Context;
 use dotenvy::dotenv;
 use geo::{Area, BoundingRect, Contains, MultiPolygon, Polygon};
 use geojson::{FeatureCollection, GeoJson, Value};
-use tracing::{debug, info};
 use rand::{
     self,
     distr::{Distribution, weighted::WeightedIndex},
@@ -12,6 +11,7 @@ use rand::{
     seq::IndexedRandom,
 };
 use reqwest::Client;
+use tracing::{debug, info};
 
 struct Country {
     name: String,

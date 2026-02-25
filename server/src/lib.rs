@@ -9,9 +9,11 @@ pub mod geo;
 mod handle;
 mod room;
 pub mod routes;
+mod score;
 
 pub use context::Context;
 pub use event::RoomEvent;
+pub use geo::Coordinates;
 pub use handle::Handle;
 pub use room::Room;
 

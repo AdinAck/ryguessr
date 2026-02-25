@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use crate::geo::{Coordinates, PanoId};
+use crate::{Coordinates, geo::PanoId};
+use axum::response::sse;
 use serde::Serialize;
 
 type PlayerName = String;
@@ -20,16 +21,24 @@ impl RoomEvent {
     }
 }
 
-#[derive(Clone, Serialize)]
-struct RoundData {
-    real_location: Coordinates,
-    player_results: HashMap<PlayerName, PlayerResults>,
+impl TryFrom<RoomEvent> for sse::Event {
+    type Error = axum::Error;
+
+    fn try_from(event: RoomEvent) -> Result<Self, Self::Error> {
+        sse::Event::default().event(event.name()).json_data(event)
+    }
 }
 
 #[derive(Clone, Serialize)]
-struct PlayerResults {
-    last_score: u32,
-    cum_score: u32,
-    distance: f64,
-    guess_location: Coordinates,
+pub struct RoundData {
+    pub real_location: Coordinates,
+    pub player_results: HashMap<PlayerName, PlayerResults>,
+}
+
+#[derive(Clone, Serialize)]
+pub struct PlayerResults {
+    pub last_score: u32,
+    pub cum_score: u32,
+    pub distance: f64,
+    pub guess_location: Coordinates,
 }

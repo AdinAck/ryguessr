@@ -1,23 +1,17 @@
-use std::{collections::HashMap, panic::Location};
+use std::collections::HashMap;
 
-use axum::response::sse;
-use tokio::sync::mpsc;
-
-use crate::{Handle, Room, geo::engine::LocationEngine, handle, room};
+use crate::{Handle, Room, handle, room};
 
 /// The context available to the API surface to facilitate the ryguessr services.
 pub struct Context {
-    location_engine: LocationEngine,
-
     pub clients: HashMap<handle::Id, Handle>,
     pub rooms: HashMap<room::Id, Room>,
 }
 
 impl Context {
     /// Create an empty context.
-    pub fn empty(location_engine: LocationEngine) -> Self {
+    pub fn empty() -> Self {
         Self {
-            location_engine,
             clients: Default::default(),
             rooms: Default::default(),
         }

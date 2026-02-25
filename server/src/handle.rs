@@ -9,12 +9,12 @@ pub struct Handle {
     /// The [`Room`](crate::Room) the associated client is participating in.
     pub room: room::Id,
     /// The chosen username of the associated client.
-    username: String,
+    pub username: String,
 }
 
 /// The unique identifier for a [`Handle`].
-#[derive(AsRef, Debug, Deref, Hash, PartialEq, Eq)]
-pub struct Id(String);
+#[derive(Clone, AsRef, Debug, Deref, Hash, PartialEq, Eq)]
+pub struct Id(pub String);
 
 /// The header name used by the client to identify itself to the server.
 static ID_HEADER_NAME: HeaderName = HeaderName::from_static("client-id");

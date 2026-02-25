@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use reqwest::Client;
 use tracing::instrument;
 
-use crate::geo::Location;
+use crate::{Coordinates, geo::Location};
 
 /// Search radius in meters for finding nearby panoramas.
 /// This is 111 meters because points are seperated by a grid of 0.001 degrees, which is
@@ -42,6 +42,8 @@ impl StreetViewClient {
             "expected longitude in location response as float 64"
         ))?;
 
+        let coordinates = Coordinates { lat, lng };
+
         let pano_id = resp
             .get("pano_id")
             .ok_or(anyhow!("expected pano id"))?
@@ -49,6 +51,9 @@ impl StreetViewClient {
             .ok_or(anyhow!("expected pano id to be a string"))?
             .to_string();
 
-        Ok(Location { lat, lng, pano_id })
+        Ok(Location {
+            coordinates,
+            pano_id,
+        })
     }
 }

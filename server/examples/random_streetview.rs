@@ -2,8 +2,8 @@ use std::env;
 
 use anyhow::{Context, anyhow};
 use dotenvy::dotenv;
-use tracing::info;
 use reqwest::Client;
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
