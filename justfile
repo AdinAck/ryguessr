@@ -6,9 +6,9 @@ set dotenv-load := true
 default:
     @just --list
 
-# Run frontend and backend concurrently
+# Run frontend and backend concurrently with auto-reload
 dev:
-    just web/dev & just server/watch & wait
+    just web/install && just web/build && just web/watch & just server/watch & wait
 
 # Run continuous integration suite
 ci:
