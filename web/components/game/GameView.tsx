@@ -1,55 +1,130 @@
 "use client"
 import Streetview from "./StreetView";
 import { MapOverlay } from "./MapOverlay";
-import { Location } from "@/types/coordinate_type";
-import { useState, useEffect } from "react"
+import { useCallback, useState, useEffect, useMemo, SubmitEvent, SubmitEventHandler } from "react"
 import { EventSource } from "eventsource";
-
+import { Scoreboard } from "./Scoreboard";
+import { Field, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button";
+// Type Data
+import RoundData from "@/types/round-data";
+import ScoreData from "@/types/score-data";
 
 export const GameView = ({ userID }: { userID: string }) => {
-  const [location, setLocation] = useState<Location | undefined>(undefined)
-  const [loading, setLoading] = useState<boolean>(false); // used for loading state, will add an animation or loading animation
+  const [panoId, setPanoId] = useState<string | undefined>(undefined)
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
+  const [roundData, setRoundData] = useState<RoundData | null>(null);
+
+  // User Name
+  const [userName, setUserName] = useState<string | null>(null);
+
+  const score_data = useMemo(() => {
+    if (roundData) {
+      const score_data: ScoreData = { player_scores: [] } as ScoreData;
+      for (const [name, entry] of Object.entries(roundData.player_results)) {
+        score_data.player_scores.push({ name: name, last_score: entry.last_score, cum_score: entry.cum_score });
+      };
+      return score_data;
+    };
+    return null;
+  }, [roundData]);
 
   useEffect(() => {
-    const es = new EventSource('/sse', {
-      fetch: (input, init) =>
-        fetch(input, {
-          ...init,
-          headers: {
-            ...init.headers,
-            Authorization: userID,
-          },
-        })
-    });
+    if (userName) {
+      const es = new EventSource('/api/events', {
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            headers: {
+              ...init.headers,
+              "Client-Id": userID,
+            },
+          })
+      });
 
-    es.addEventListener('location', (event) => {
-      const location_data = JSON.parse(event.data);
-      setLocation(location_data);
-    })
+      es.addEventListener('round-start', (event) => {
+        const pano_id = JSON.parse(event.data);
+        setPanoId(pano_id);
+      })
 
-    return () => {
-      es.close();
+      es.addEventListener('round-data', (event) => {
+        const round_data: RoundData = JSON.parse(event.data);
+        setRoundData(round_data);
+      })
+      return () => {
+        es.close();
+      };
     };
 
+  }, [userName]);
 
-  }, []);
+  const handleSubmit = async (event: React.SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    const userName = formData.get("username") as string;
+    if (!userName || !userName.trim()) return;
+    const response = await fetch("/api/init", {
+      method: 'POST',
+      body: JSON.stringify(userName),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+    });
+    if (!response.ok) {
+      console.log("Error posting username");
+    } else {
+      setUserName(userName);
+    };
+  };
 
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden">
-      <div className="absolute inset-0 z-0">
-        <Streetview location={location} />
-      </div>
+    <main className="bg-black relative h-screen w-screen overflow-hidden">
+      {userName
+        ?
+        <div className="absolute inset-0 z-0">
+          {location
+            ?
+            <Streetview panoId={panoId} />
+            :
+            <p className="text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">Loading ....</p>}
+        </div>
+        :
+        <div className="overflow-hidden absolute transition-all duration-300 ease-in-out top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <Field>
+              <FieldLabel className="text-white" htmlFor="input-field-username">Username</FieldLabel>
+              <Input
+                id="input-field-username"
+                name="username"
+                type="text"
+                placeholder="Enter your username"
+                className="text-white"
+              />
+            </Field>
+            <Field orientation="horizontal">
+              <Button type="submit">Submit</Button>
+            </Field>
+
+          </form>
+
+        </div>
+      }
 
       <div className={`bottom-5 left-5 flex flex-col gap-2 absolute z-10 aspect-video transition-all duration-300 origin-bottom-left ${hasGuessed
         ? " w-[calc(100vw-2.5rem)] max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
         : "w-40 md:w-64 lg:w-90 opacity-90 hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
         }`}>
-        <MapOverlay location={location} hasGuessed={hasGuessed} setHasGuessed={setHasGuessed} />
+        <MapOverlay location={roundData?.real_location} hasGuessed={hasGuessed} setHasGuessed={setHasGuessed} />
       </div>
+      {/* {score_data && */}
+      {/*   <div className="overflow-hidden absolute transition-all duration-300 ease-in-out top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"> */}
+      {/*     <Scoreboard score_data={score_data} /> */}
+      {/*   </div> */}
+      {/* } */}
 
     </main>
+
 
   );
 };

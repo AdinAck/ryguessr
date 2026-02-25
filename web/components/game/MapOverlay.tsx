@@ -3,8 +3,8 @@ import { useState, useCallback, useRef, useMemo } from 'react';
 import { GoogleMap, MarkerF } from '@react-google-maps/api';
 import { Button } from '../ui/button';
 
-// Location type
-import { MapOverlayProps } from '@/types/map_overlay_props';
+// Coordinates type
+import MapOverlayProps from '@/types/map_overlay_props';
 
 export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayProps) => {
   const [selectedLocation, setSelectedLocation] = useState<google.maps.LatLngLiteral | null>(null);
@@ -15,11 +15,11 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
         defaultPosition: { lat: 35.6586, lng: 139.7454 },
         locationIconOptions: { width: 30, height: 30, url: "/svg/flag.svg", anchor: new google.maps.Point(15, 30) },
         userIconOptions: { width: 30, height: 30, url: "/svg/user-map-pin.svg", anchor: new google.maps.Point(15, 30) },
-        mapContainerStyle: {width: "100%", height: "100%" },
+        mapContainerStyle: { width: "100%", height: "100%" },
       }
     );
 
-  }, []) 
+  }, [])
 
   const mapRef = useRef<google.maps.Map | null>(null);
 
@@ -43,14 +43,18 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
 
   const handleMapPanOnGuess = () => {
     setHasGuessed(true);
-    if (location && selectedLocation && mapRef.current) {
+    if (defaultPosition && selectedLocation && mapRef.current) {
       const bounds = new window.google.maps.LatLngBounds();
-      bounds.extend(location);
+      bounds.extend(defaultPosition);
       bounds.extend(selectedLocation);
       mapRef.current.fitBounds(bounds, 0);
     };
 
   }
+
+  const handleContinue = () => {
+    console.log("Continuing!!")
+  };
 
   return (
     <div className="flex gap-2 flex-col gap-2 h-full w-full">
@@ -68,14 +72,14 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
             icon={userIconOptions}
 
           />)}
-          {hasGuessed && selectedLocation && (<MarkerF icon={locationIconOptions} 
+          {hasGuessed && selectedLocation && (<MarkerF icon={locationIconOptions}
             position={location
-            ? location
-            : defaultPosition} />)}
+              ? location
+              : defaultPosition} />)}
         </GoogleMap>
       </div>
       <div className='w-full z-10'>
-        <Button onClick={hasGuessed ? undefined : handleMapPanOnGuess} className={"w-full tracking-widest shwdow-lg transition-transform duration-150 ease-in-out active:scale-95"} size={"default"} variant={"default"}> {hasGuessed ? "Continue" : "Guess"} </Button>
+        <Button onClick={selectedLocation && !hasGuessed ? handleMapPanOnGuess : hasGuessed ? handleContinue : undefined} className={"w-full tracking-widest shwdow-lg transition-transform duration-150 ease-in-out active:scale-95"} size={"default"} variant={"default"}> {hasGuessed ? "Continue" : "Guess"} </Button>
       </div>
     </div>
   );

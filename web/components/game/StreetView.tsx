@@ -1,13 +1,11 @@
 "use client"
 import { GoogleMap, StreetViewPanorama, useLoadScript } from "@react-google-maps/api";
-import { Location } from "@/types/coordinate_type";
 import { memo } from "react"
 
 // DefaultPosition static  
 const defaultPosition = { lat: 35.6586, lng: 139.7454 };
 
-const Streetview = memo(({ location }: { location?: Location }) => {
-
+const Streetview = memo(({ panoId }: { panoId?: string }) => {
 
 
 
@@ -20,7 +18,7 @@ const Streetview = memo(({ location }: { location?: Location }) => {
         <StreetViewPanorama
           options={{
             visible: true,
-            position: location ? location : defaultPosition,
+            pano: panoId,
             addressControl: false,
             enableCloseButton: false,
             fullscreenControl: false,

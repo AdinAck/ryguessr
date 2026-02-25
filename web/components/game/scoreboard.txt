@@ -1,0 +1,21 @@
+@ ScoreBoard 
+
+
+Objective: 
+  - The scoreboard will track the current player(s) score   
+
+Score:
+  - The score will be calculated based on how close the player's guess is to the real location shown on StreetView
+
+UI:
+  - Dedicated Screen for the scoreboard appears after all players have pressed "continue" after guessing 
+
+State
+  - Player's score - passed down from GameView OR MapOverlay.tsx
+  - Player's position on the scoreboard - passed down from GameView or MapOverlay.tsx
+
+sse (Upon all players submitting their guess) :
+ - The new running Score of every single player, Distance of their own guess and coordinates of every other players guess, and the real Location coordinates
+
+Upon pressing continue
+

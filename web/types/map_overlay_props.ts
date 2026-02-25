@@ -1,7 +1,9 @@
-import { Location } from "./coordinate_type";
+import Coordinates from "./coordinate_type";
 
-export type MapOverlayProps = {
-  location?: Location,
+interface MapOverlayProps {
+  location?: Coordinates,
   hasGuessed: boolean,
   setHasGuessed: (hasGuessed: boolean) => void;
 };
+
+export default MapOverlayProps;
