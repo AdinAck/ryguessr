@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use reqwest::Client;
+use tracing::instrument;
 
 use crate::geo::Location;
 
@@ -21,6 +22,7 @@ impl StreetViewClient {
         }
     }
 
+    #[instrument(skip(self))]
     pub async fn find_panorama(&self, lat: f64, lng: f64) -> anyhow::Result<Location> {
         let url = format!(
             "https://maps.googleapis.com/maps/api/streetview/metadata?location={},{}&radius={}&key={}",

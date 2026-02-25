@@ -4,7 +4,7 @@ use anyhow::Context;
 use dotenvy::dotenv;
 use geo::{Area, BoundingRect, Contains, MultiPolygon, Polygon};
 use geojson::{FeatureCollection, GeoJson, Value};
-use log::{debug, info};
+use tracing::{debug, info};
 use rand::{
     self,
     distr::{Distribution, weighted::WeightedIndex},
@@ -100,7 +100,9 @@ fn load_countries(path: &str) -> anyhow::Result<Vec<Country>> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     dotenv().ok();
 

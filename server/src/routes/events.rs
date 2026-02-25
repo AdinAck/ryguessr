@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 
 use crate::{Context, handle};
 
+#[tracing::instrument(skip_all, fields(client_id = %*client_id))]
 pub async fn sse_event_handler(
     State(context): State<Arc<RwLock<Context>>>,
     TypedHeader(client_id): TypedHeader<handle::Id>,
@@ -26,7 +27,7 @@ pub async fn sse_event_handler(
         while let Ok(event) = rx.recv().await {
             match sse::Event::default().event(event.name()).json_data(&event) {
                 Ok(event_json) => yield Ok(event_json),
-                Err(e) => log::error!("{} failed to serialize event", e),
+                Err(err) => tracing::error!(%err, "failed to serialize event"),
             }
         }
     };

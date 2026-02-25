@@ -9,7 +9,7 @@ use std::{
 use anyhow::Context;
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
-use log::info;
+use tracing::info;
 use osmpbf::{Element, ElementReader};
 use serde::Deserialize;
 
@@ -174,7 +174,9 @@ async fn download_pbf(client: &reqwest::Client, url: &str, dest: &Path) -> anyho
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     let args: Vec<String> = env::args().collect();
     let region_filter = args

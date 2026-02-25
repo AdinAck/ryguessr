@@ -1,7 +1,6 @@
 use std::{path::Path, sync::Arc};
 
 use axum::{Router, routing::get};
-use log::info;
 use ryguessr::{
     config::Config,
     context::Context,
@@ -12,11 +11,14 @@ use ryguessr::{
     routes,
 };
 use tokio::sync::RwLock;
-use tower_http::services::ServeDir;
+use tower_http::{services::ServeDir, trace::TraceLayer};
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     let config = Config::from_env()?;
 
@@ -38,6 +40,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/events", get(routes::events::sse_event_handler))
         .with_state(cx)
+        .layer(TraceLayer::new_for_http())
         .fallback_service(ServeDir::new("../web/out"));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;

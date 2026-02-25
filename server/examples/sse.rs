@@ -8,7 +8,7 @@ use axum::response::sse::Event;
 use axum::routing::get;
 use axum::{Json, Router};
 use futures_util::Stream;
-use log::{debug, info};
+use tracing::{debug, info};
 use ryguessr::routes::random::{ErrorResponse, LocationResponse};
 use tokio::sync::{RwLock, mpsc};
 use tokio_stream::wrappers::ReceiverStream;
@@ -29,7 +29,9 @@ const MAX_ATTEMPTS: usize = 100;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     let config = Config::from_env()?;
 

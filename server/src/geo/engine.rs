@@ -1,5 +1,5 @@
 use anyhow::bail;
-use log::debug;
+use tracing::{debug, instrument};
 
 use crate::geo::{Location, sampler::RandomLocationSampler, streetview::StreetViewClient};
 
@@ -21,10 +21,11 @@ impl LocationEngine {
         }
     }
 
+    #[instrument(skip(self))]
     pub async fn get_random_location(&self) -> anyhow::Result<Location> {
         for _ in 0..MAX_ATTEMPTS {
             let (lat, lng) = self.location_sampler.sample();
-            debug!("Trying poing: {}, {}", lat, lng);
+            debug!(lat, lng, "trying point");
 
             match self.streetview_client.find_panorama(lat, lng).await {
                 Ok(location) => return Ok(location),

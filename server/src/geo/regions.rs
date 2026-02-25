@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use log::trace;
 use memmap2::Mmap;
+use tracing::{instrument, trace};
 
 const POINT_SIZE: usize = 8;
 
@@ -20,6 +20,7 @@ impl RegionData {
     }
 }
 
+#[instrument(fields(dir = %dir.display()))]
 pub fn load_all_regions(dir: &Path) -> anyhow::Result<Vec<RegionData>> {
     let mut regions = Vec::new();
     load_regions_recursive(dir, dir, &mut regions)?;

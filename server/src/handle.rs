@@ -13,7 +13,7 @@ pub struct Handle {
 }
 
 /// The unique identifier for a [`Handle`].
-#[derive(AsRef, Deref, Hash, PartialEq, Eq)]
+#[derive(AsRef, Debug, Deref, Hash, PartialEq, Eq)]
 pub struct Id(String);
 
 /// The header name used by the client to identify itself to the server.
