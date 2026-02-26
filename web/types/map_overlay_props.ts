@@ -1,9 +1,10 @@
 import Coordinates from "./coordinate_type";
+import RoundData from "./round-data";
 
 interface MapOverlayProps {
-  location?: Coordinates,
+  roundData?: RoundData,
   hasGuessed: boolean,
-  setHasGuessed: (hasGuessed: boolean) => void;
+  handleGuess: (hasGuessed: boolean, selectedLocation: Coordinates) => void;
 };
 
 export default MapOverlayProps;

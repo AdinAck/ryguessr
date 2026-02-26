@@ -1,13 +1,14 @@
 "use client"
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { GoogleMap, MarkerF } from '@react-google-maps/api';
 import { Button } from '../ui/button';
 
 // Coordinates type
 import MapOverlayProps from '@/types/map_overlay_props';
+import Coordinates from '@/types/coordinate_type';
 
-export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayProps) => {
-  const [selectedLocation, setSelectedLocation] = useState<google.maps.LatLngLiteral | null>(null);
+export const MapOverlay = ({ roundData, handleGuess, hasGuessed, }: MapOverlayProps) => {
+  const [selectedLocation, setSelectedLocation] = useState<Coordinates | null>(null);
 
   const { defaultPosition, locationIconOptions, userIconOptions, mapContainerStyle } = useMemo(() => {
     return (
@@ -27,6 +28,11 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
     return { draggableCursor: hasGuessed ? "move" : "crosshair", disableDefaultUI: true, clickableIcons: false, gestureHandling: "greedy", draggingCursor: "move", minZoom: 2 }
   }, [hasGuessed]);
 
+  useEffect(() => {
+    console.log(roundData);
+    console.log("printing round data");
+  }, [roundData]);
+
 
   const onMapClick = useCallback((e: google.maps.MapMouseEvent) => {
     if (e.latLng) {
@@ -41,8 +47,9 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
     map.setZoom(2);
   }, []);
 
-  const handleMapPanOnGuess = () => {
-    setHasGuessed(true);
+  const handleMapPanOnGuess = async () => {
+    if (!selectedLocation) return;
+    handleGuess(true, selectedLocation);
     if (defaultPosition && selectedLocation && mapRef.current) {
       const bounds = new window.google.maps.LatLngBounds();
       bounds.extend(defaultPosition);
@@ -72,10 +79,12 @@ export const MapOverlay = ({ location, setHasGuessed, hasGuessed, }: MapOverlayP
             icon={userIconOptions}
 
           />)}
-          {hasGuessed && selectedLocation && (<MarkerF icon={locationIconOptions}
-            position={location
-              ? location
-              : defaultPosition} />)}
+          {hasGuessed && selectedLocation && roundData && (
+            <MarkerF
+              icon={locationIconOptions}
+              position={selectedLocation ? { lat: roundData.real_location.lat, lng: roundData.real_location.lng } : defaultPosition}
+            />
+          )}
         </GoogleMap>
       </div>
       <div className='w-full z-10'>

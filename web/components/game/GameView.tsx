@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
 // Type Data
 import RoundData from "@/types/round-data";
 import ScoreData from "@/types/score-data";
+import RoundStart from "@/types/round-start";
+import Coordinates from "@/types/coordinate_type";
 
 export const GameView = ({ userID }: { userID: string }) => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined)
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
-  const [roundData, setRoundData] = useState<RoundData | null>(null);
+  const [roundData, setRoundData] = useState<RoundData | undefined>(undefined);
 
   // User Name
   const [userName, setUserName] = useState<string | null>(null);
@@ -44,13 +46,18 @@ export const GameView = ({ userID }: { userID: string }) => {
       });
 
       es.addEventListener('round-start', (event) => {
-        const pano_id = JSON.parse(event.data);
-        setPanoId(pano_id);
+        const pano_id: RoundStart = JSON.parse(event.data);
+        console.log(pano_id);
+        console.log(event);
+        setPanoId(pano_id.RoundStart);
       })
 
-      es.addEventListener('round-data', (event) => {
-        const round_data: RoundData = JSON.parse(event.data);
-        setRoundData(round_data);
+
+      es.addEventListener('round-end', (event) => {
+        const round_data = JSON.parse(event.data);
+        console.log(event);
+        console.log(round_data);
+        setRoundData(round_data.RoundEnd);
       })
       return () => {
         es.close();
@@ -67,15 +74,36 @@ export const GameView = ({ userID }: { userID: string }) => {
     if (!userName || !userName.trim()) return;
     const response = await fetch("/api/init", {
       method: 'POST',
-      body: JSON.stringify(userName),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: `"${userName}"`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Client-Id': userID
+      },
     });
     if (!response.ok) {
+      console.log(response);
+      console.log("mewhen");
       console.log("Error posting username");
     } else {
       setUserName(userName);
     };
   };
+
+  const handleGuess = useCallback(async (guess: boolean, selectedLocation: Coordinates) => {
+    setHasGuessed(guess);
+    console.log(selectedLocation);
+    const response = await fetch("/api/guess", {
+      method: 'POST',
+      body: JSON.stringify(selectedLocation),
+      headers: {
+        'Content-Type': 'application/json',
+        'Client-Id': userID,
+      },
+    });
+    if (!response.ok) {
+      console.log(response);
+    };
+  }, []);
 
 
   return (
@@ -115,7 +143,7 @@ export const GameView = ({ userID }: { userID: string }) => {
         ? " w-[calc(100vw-2.5rem)] max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
         : "w-40 md:w-64 lg:w-90 opacity-90 hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
         }`}>
-        <MapOverlay location={roundData?.real_location} hasGuessed={hasGuessed} setHasGuessed={setHasGuessed} />
+        <MapOverlay roundData={roundData} hasGuessed={hasGuessed} handleGuess={handleGuess} />
       </div>
       {/* {score_data && */}
       {/*   <div className="overflow-hidden absolute transition-all duration-300 ease-in-out top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"> */}
