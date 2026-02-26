@@ -106,12 +106,13 @@ impl Model {
         self.remove_from_room(client_id, &handle.room);
     }
 
+    /// Create a new room with the given user as the first member, returning the room Id and assigned color.
     pub fn create_room(
         &mut self,
         location: Location,
         client_id: handle::Id,
         username: String,
-    ) -> room::Id {
+    ) -> (room::Id, String) {
         // Generate room Id (ensure no collisions)
         let room_id = {
             let mut id = room::Id::random();
@@ -123,16 +124,18 @@ impl Model {
 
         // Create room + handle
         let room = Room::new(location, client_id.clone(), username.clone());
+        let color = room.members.get(&client_id).unwrap().color.clone();
+
         self.rooms.insert(room_id.clone(), room);
         self.clients.insert(
-            client_id,
+            client_id.clone(),
             Handle {
                 room: room_id.clone(),
                 username,
             },
         );
 
-        room_id
+        (room_id, color)
     }
 
     pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, StatusCode> {

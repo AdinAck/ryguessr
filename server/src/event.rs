@@ -13,7 +13,7 @@ type Username = String;
 pub enum RoomEvent {
     RoundStart(RoundStartData),
     RoundEnd(RoundEndData),
-    PlayerJoined { username: Username },
+    PlayerJoined(JoinData),
     PlayerLeft { username: Username },
 }
 
@@ -43,4 +43,10 @@ pub struct PlayerResults {
     pub cum_score: u32,
     pub distance: f64,
     pub guess_location: Coordinates,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct JoinData {
+    pub username: String,
+    pub color: String,
 }
