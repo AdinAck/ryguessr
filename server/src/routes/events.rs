@@ -9,27 +9,22 @@ use futures_util::{Stream, StreamExt, stream};
 use reqwest::StatusCode;
 use tokio::sync::RwLock;
 
-use crate::{Context, RoomEvent, geo::engine::LocationEngine, handle, room};
+use crate::{Context, RoomEvent, geo::engine::LocationEngine, handle};
 
 /// Guard that removes a member from their room when the SSE stream is dropped (client disconnects).
 struct DisconnectGuard {
     context: Arc<RwLock<Context>>,
     client_id: handle::Id,
-    room_id: room::Id,
 }
 
 impl Drop for DisconnectGuard {
     fn drop(&mut self) {
         let context = self.context.clone();
         let client_id = self.client_id.clone();
-        let room_id = self.room_id.clone();
         tokio::spawn(async move {
             let mut cx = context.write().await;
-            if let Some(room) = cx.rooms.get_mut(&room_id) {
-                room.remove_member(&client_id);
-                tracing::info!(client_id = %*client_id, "client disconnected, removed from room");
-            }
-            cx.clients.remove(&client_id);
+            cx.remove_client(&client_id);
+            tracing::info!(client_id = %*client_id, "client disconnected, removed from room");
         });
     }
 }
@@ -53,11 +48,7 @@ pub async fn sse_event_handler(
     let mut rx = room.event_tx.subscribe();
     drop(cx);
 
-    let guard = DisconnectGuard {
-        context,
-        client_id,
-        room_id,
-    };
+    let guard = DisconnectGuard { context, client_id };
 
     let stream = async_stream::stream! {
         // Hold the guard alive for the lifetime of the stream.

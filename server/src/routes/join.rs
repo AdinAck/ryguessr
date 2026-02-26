@@ -20,11 +20,12 @@ pub async fn join_handler(
         Some(h) => (h.username.clone(), h.room.clone()),
         None => return StatusCode::UNAUTHORIZED,
     };
-    let old_room = match cx.rooms.get_mut(&old_room_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    old_room.remove_member(&client_id);
+    if let Some(old_room) = cx.rooms.get_mut(&old_room_id) {
+        old_room.remove_member(&client_id);
+        if old_room.members.is_empty() {
+            cx.rooms.remove(&old_room_id);
+        }
+    }
 
     // Add client to new room
     let new_room = match cx.rooms.get_mut(&room_id) {
