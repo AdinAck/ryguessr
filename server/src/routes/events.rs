@@ -9,7 +9,7 @@ use futures_util::{Stream, StreamExt, stream};
 use reqwest::StatusCode;
 use tokio::sync::RwLock;
 
-use crate::{Context, RoomEvent, geo::engine::LocationEngine, handle};
+use crate::{Context, RoomEvent, event::RoundStartData, geo::engine::LocationEngine, handle};
 
 /// Guard that removes a member from their room when the SSE stream is dropped (client disconnects).
 struct DisconnectGuard {
@@ -39,9 +39,10 @@ pub async fn sse_event_handler(
     let room_id = handle.room.clone();
     let room = cx.rooms.get(&room_id).ok_or(StatusCode::NOT_FOUND)?;
 
+    let round = room.round;
     let pano_id = room.location.pano_id.clone();
-    let initial_event = stream::once(async {
-        let event = RoomEvent::RoundStart(pano_id);
+    let initial_event = stream::once(async move {
+        let event = RoomEvent::RoundStart(RoundStartData { pano_id, round });
         event.try_into()
     });
 

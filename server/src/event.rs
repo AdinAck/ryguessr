@@ -8,8 +8,8 @@ type Username = String;
 
 #[derive(Clone, Serialize)]
 pub enum RoomEvent {
-    RoundStart(PanoId),
-    RoundEnd(RoundData),
+    RoundStart(RoundStartData),
+    RoundEnd(RoundEndData),
     PlayerJoined(Username),
     PlayerLeft(Username),
 }
@@ -34,7 +34,13 @@ impl TryFrom<RoomEvent> for sse::Event {
 }
 
 #[derive(Clone, Serialize)]
-pub struct RoundData {
+pub struct RoundStartData {
+    pub pano_id: PanoId,
+    pub round: usize,
+}
+
+#[derive(Clone, Serialize)]
+pub struct RoundEndData {
     pub real_location: Coordinates,
     pub player_results: HashMap<Username, PlayerResults>,
 }
