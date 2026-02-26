@@ -2,12 +2,14 @@ use std::env;
 
 use anyhow::{Context, anyhow};
 use dotenvy::dotenv;
-use log::info;
 use reqwest::Client;
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     dotenv().ok();
 

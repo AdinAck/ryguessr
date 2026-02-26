@@ -2,10 +2,10 @@ use std::{env, path::Path};
 
 use anyhow::Context;
 use dotenvy::dotenv;
-use log::{debug, info, trace};
 use memmap2::Mmap;
 use rand::distr::{Distribution, weighted::WeightedIndex};
 use reqwest::Client;
+use tracing::{debug, info, trace};
 
 /// Size of a single point: two f32s (lat, lng), 8 bytes.
 const POINT_SIZE: usize = 8;
@@ -65,7 +65,9 @@ fn get_point(mmap: &Mmap, index: usize) -> (f64, f64) {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
     dotenv().ok();
 
     let api_key =
