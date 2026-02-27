@@ -33,7 +33,6 @@
           packages = with pkgs; [
             # JS / frontend
             nodejs
-            nodePackages.npm
 
             # Rust extras
             rust-analyzer
