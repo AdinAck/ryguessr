@@ -6,7 +6,7 @@ use tokio::sync::broadcast;
 
 use crate::{
     Coordinates, RoomEvent,
-    event::{PlayerResults, RoundData},
+    event::{PlayerResults, RoundEndData, RoundStartData},
     geo::{Location, engine::LocationEngine},
     handle, score,
 };
@@ -18,6 +18,8 @@ pub struct Room {
     /// A map corresponding the identifiers of each member to their local
     /// [attributes](MemberAttributes).
     pub members: HashMap<handle::Id, MemberAttributes>,
+    /// The number of rounds played
+    pub round: usize,
     /// The room's current [`Location`].
     pub location: Location,
     /// The room's current [configuration](Config).
@@ -43,6 +45,7 @@ impl Room {
         )]);
         Self {
             members,
+            round: 0,
             location,
             config: Config {},
             event_tx,
@@ -98,7 +101,11 @@ impl Room {
             member.ready_next_round = false;
         }
 
-        let _ = self.event_tx.send(RoomEvent::RoundStart(pano_id));
+        self.round += 1;
+        let round = self.round;
+        let _ = self
+            .event_tx
+            .send(RoomEvent::RoundStart(RoundStartData { pano_id, round }));
     }
 
     /// Handle a guess from a member of the room. This will update the member's score and broadcast
@@ -137,7 +144,7 @@ impl Room {
                 })
                 .collect();
 
-            let event = RoomEvent::RoundEnd(RoundData {
+            let event = RoomEvent::RoundEnd(RoundEndData {
                 real_location: self.location.coordinates.clone(),
                 player_results,
             });
