@@ -7,6 +7,7 @@ use serde::Serialize;
 type Username = String;
 
 #[derive(Clone, Serialize)]
+#[serde(untagged)]
 pub enum RoomEvent {
     RoundStart(RoundStartData),
     RoundEnd(RoundEndData),

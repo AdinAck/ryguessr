@@ -101,12 +101,11 @@ impl Room {
             member.ready_next_round = false;
         }
 
+        self.round += 1;
         let round = self.round;
         let _ = self
             .event_tx
             .send(RoomEvent::RoundStart(RoundStartData { pano_id, round }));
-
-        self.round += 1;
     }
 
     /// Handle a guess from a member of the room. This will update the member's score and broadcast

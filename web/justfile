@@ -23,4 +23,4 @@ watch:
 
 # Install dependencies
 install:
-    npm install
+    npm ci
