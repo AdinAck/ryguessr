@@ -1,5 +1,8 @@
 interface RoundStart {
-  RoundStart: string,
+  RoundStart: {
+    pano_id: string,
+    round: number,
+  };
 };
 
 export default RoundStart;

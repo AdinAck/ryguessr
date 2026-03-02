@@ -4,7 +4,11 @@ import RoundData from "./round-data";
 interface MapOverlayProps {
   roundData?: RoundData,
   hasGuessed: boolean,
-  handleGuess: (hasGuessed: boolean, selectedLocation: Coordinates) => void;
+  hasContinued: boolean,
+  // shownScoreboard: boolean,
+  handleGuess: (hasGuessed: boolean, selectedLocation: Coordinates) => void,
+  // handleScoreboard: () => void,
+  handleContinue: () => void,
 };
 
 export default MapOverlayProps;

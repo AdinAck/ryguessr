@@ -17,20 +17,23 @@ export const GameView = ({ userID }: { userID: string }) => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined)
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
   const [roundData, setRoundData] = useState<RoundData | undefined>(undefined);
+  const [hasContinued, setHasContinued] = useState<boolean>(false);
+  const [roundNumber, setRoundNumber] = useState<number>(1);
+  // const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
 
   // User Name
   const [userName, setUserName] = useState<string | null>(null);
 
-  const score_data = useMemo(() => {
-    if (roundData) {
-      const score_data: ScoreData = { player_scores: [] } as ScoreData;
-      for (const [name, entry] of Object.entries(roundData.player_results)) {
-        score_data.player_scores.push({ name: name, last_score: entry.last_score, cum_score: entry.cum_score });
-      };
-      return score_data;
-    };
-    return null;
-  }, [roundData]);
+  // const score_data = useMemo(() => {
+  //   if (roundData) {
+  //     const score_data: ScoreData = { player_scores: [] } as ScoreData;
+  //     for (const [name, entry] of Object.entries(roundData.player_results)) {
+  //       score_data.player_scores.push({ name: name, last_score: entry.last_score, cum_score: entry.cum_score });
+  //     };
+  //     return score_data;
+  //   };
+  //   return null;
+  // }, [roundData]);
 
   useEffect(() => {
     if (userName) {
@@ -46,23 +49,28 @@ export const GameView = ({ userID }: { userID: string }) => {
       });
 
       es.addEventListener('round-start', (event) => {
-        const pano_id: RoundStart = JSON.parse(event.data);
-        console.log(pano_id);
-        console.log(event);
-        setPanoId(pano_id.RoundStart);
+        const round_start: RoundStart = JSON.parse(event.data);
+        console.log("round start")
+        console.log(round_start.RoundStart.round);
+        setPanoId(round_start.RoundStart.pano_id);
+        setRoundNumber(round_start.RoundStart.round);
+        setHasGuessed(false);
+        setHasContinued(false);
       })
 
 
       es.addEventListener('round-end', (event) => {
         const round_data = JSON.parse(event.data);
-        console.log(event);
-        console.log(round_data);
+        // console.log(event);
+        // console.log(round_data);
         setRoundData(round_data.RoundEnd);
       })
       return () => {
         es.close();
       };
     };
+
+
 
   }, [userName]);
 
@@ -82,7 +90,6 @@ export const GameView = ({ userID }: { userID: string }) => {
     });
     if (!response.ok) {
       console.log(response);
-      console.log("mewhen");
       console.log("Error posting username");
     } else {
       setUserName(userName);
@@ -91,8 +98,8 @@ export const GameView = ({ userID }: { userID: string }) => {
 
   const handleGuess = useCallback(async (guess: boolean, selectedLocation: Coordinates) => {
     setHasGuessed(guess);
-    console.log(selectedLocation);
-    const response = await fetch("/api/guess", {
+    // console.log(selectedLocation);
+    const response = await fetch('/api/guess', {
       method: 'POST',
       body: JSON.stringify(selectedLocation),
       headers: {
@@ -106,11 +113,30 @@ export const GameView = ({ userID }: { userID: string }) => {
   }, []);
 
 
+  const handleContinue = useCallback(async () => {
+    setHasContinued(true);
+    const response = await fetch('/api/next', {
+      method: 'POST',
+      headers: {
+
+        "Client-Id": userID,
+      },
+    });
+    if (!response.ok) {
+      console.log(response);
+    };
+  }, []);
+
+
+  // const handleScoreboard = useCallback(() => {
+  //   setShownScoreboard(true);
+  // }, [])
+
   return (
     <main className="bg-black relative h-screen w-screen overflow-hidden">
       {userName
         ?
-        <div className="absolute inset-0 z-0">
+        <div className={` absolute inset-0 z-0`}>
           {location
             ?
             <Streetview panoId={panoId} />
@@ -139,17 +165,20 @@ export const GameView = ({ userID }: { userID: string }) => {
         </div>
       }
 
-      <div className={`bottom-5 left-5 flex flex-col gap-2 absolute z-10 aspect-video transition-all duration-300 origin-bottom-left ${hasGuessed
-        ? " w-[calc(100vw-2.5rem)] max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
-        : "w-40 md:w-64 lg:w-90 opacity-90 hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
+      <div className={` pointer-events-auto bottom-5 left-5 flex flex-col gap-2 absolute z-10 aspect-video transition-all duration-300 origin-bottom-left 
+          ${hasGuessed && !hasContinued
+          ? " w-[calc(100vw-2.5rem)] max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
+          : "w-40 md:w-64 lg:w-90 opacity-90 hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
         }`}>
-        <MapOverlay roundData={roundData} hasGuessed={hasGuessed} handleGuess={handleGuess} />
+        <MapOverlay key={`map-round${roundNumber}`} roundData={roundData} hasContinued={hasContinued} hasGuessed={hasGuessed} handleGuess={handleGuess} handleContinue={handleContinue} /> {/*handleScoreboard={handleScoreboard} shownScoreboard={shownScoreboard} */}
+
       </div>
-      {/* {score_data && */}
+      {/* {score_data && shownScoreboard && */}
       {/*   <div className="overflow-hidden absolute transition-all duration-300 ease-in-out top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"> */}
       {/*     <Scoreboard score_data={score_data} /> */}
       {/*   </div> */}
       {/* } */}
+      {/* ${shownScoreboard && score_data ? 'blur-sm' : undefined}  */}
 
     </main>
 

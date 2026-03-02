@@ -7,6 +7,7 @@ const defaultPosition = { lat: 35.6586, lng: 139.7454 };
 
 const Streetview = memo(({ panoId }: { panoId?: string }) => {
 
+  // console.log(panoId);
 
 
   return (

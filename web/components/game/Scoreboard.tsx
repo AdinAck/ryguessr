@@ -16,9 +16,9 @@ export const Scoreboard = memo(({ score_data }: { score_data: ScoreData }) => {
                   <TableCell className="text-right">{score.cum_score}</TableCell>
                 </>
               );
-            })};
-            <TableCell className="font-medium">Player1</TableCell>
-            <TableCell className="text-right">250Pts</TableCell>
+            })}
+            {/* <TableCell className="font-medium">Player1</TableCell> */}
+            {/* <TableCell className="text-right">250Pts</TableCell> */}
           </TableRow>
         </TableBody>
       </Table>
