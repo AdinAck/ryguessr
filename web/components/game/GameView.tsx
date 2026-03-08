@@ -19,21 +19,21 @@ export const GameView = ({ userID }: { userID: string }) => {
   const [roundData, setRoundData] = useState<RoundData | undefined>(undefined);
   const [hasContinued, setHasContinued] = useState<boolean>(false);
   const [roundNumber, setRoundNumber] = useState<number>(1);
-  // const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
+  const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
 
   // User Name
   const [userName, setUserName] = useState<string | null>(null);
 
-  // const score_data = useMemo(() => {
-  //   if (roundData) {
-  //     const score_data: ScoreData = { player_scores: [] } as ScoreData;
-  //     for (const [name, entry] of Object.entries(roundData.player_results)) {
-  //       score_data.player_scores.push({ name: name, last_score: entry.last_score, cum_score: entry.cum_score });
-  //     };
-  //     return score_data;
-  //   };
-  //   return null;
-  // }, [roundData]);
+  const score_data = useMemo(() => {
+    if (roundData) {
+      const score_data: ScoreData = { player_scores: [] } as ScoreData;
+      for (const [name, entry] of Object.entries(roundData.player_results)) {
+        score_data.player_scores.push({ name: name, last_score: entry.last_score, cum_score: entry.cum_score });
+      };
+      return score_data;
+    };
+    return null;
+  }, [roundData]);
 
   useEffect(() => {
     if (userName) {
@@ -56,6 +56,8 @@ export const GameView = ({ userID }: { userID: string }) => {
         setRoundNumber(round_start.round);
         setHasGuessed(false);
         setHasContinued(false);
+        setShownScoreboard(false);
+        setRoundData(undefined);
       })
 
 
@@ -128,15 +130,15 @@ export const GameView = ({ userID }: { userID: string }) => {
   }, []);
 
 
-  // const handleScoreboard = useCallback(() => {
-  //   setShownScoreboard(true);
-  // }, [])
+  const handleScoreboard = useCallback(() => {
+    setShownScoreboard(true);
+  }, [])
 
   return (
     <main className="bg-black relative h-screen w-screen overflow-hidden">
       {userName
         ?
-        <div className={` absolute inset-0 z-0`}>
+        <div className={`${shownScoreboard && score_data ? 'blur-sm' : undefined} absolute inset-0 z-0`}>
           {location
             ?
             <Streetview panoId={panoId} />
@@ -165,20 +167,19 @@ export const GameView = ({ userID }: { userID: string }) => {
         </div>
       }
 
-      <div className={` pointer-events-auto bottom-5 left-5 flex flex-col gap-2 absolute z-10 aspect-video transition-all duration-300 origin-bottom-left 
-          ${hasGuessed && !hasContinued
+      <div className={` bottom-5 left-5 flex flex-col gap-2 absolute z-10 aspect-video transition-all duration-300 origin-bottom-left 
+          ${roundData && !shownScoreboard
           ? " w-[calc(100vw-2.5rem)] max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
-          : "w-40 md:w-64 lg:w-90 opacity-90 hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
+          : shownScoreboard ? "w-40 md:w-64 lg:w-90 opacity-90 " : "w-40 md:w-64 lg:w-90 opacity-90 hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
         }`}>
-        <MapOverlay key={`map-round${roundNumber}`} roundData={roundData} hasContinued={hasContinued} hasGuessed={hasGuessed} handleGuess={handleGuess} handleContinue={handleContinue} /> {/*handleScoreboard={handleScoreboard} shownScoreboard={shownScoreboard} */}
+        <MapOverlay key={`map-round${roundNumber}`} handleScoreboard={handleScoreboard} shownScoreboard={shownScoreboard} roundData={roundData} hasContinued={hasContinued} hasGuessed={hasGuessed} handleGuess={handleGuess} handleContinue={handleContinue} /> {/*handleScoreboard={handleScoreboard} shownScoreboard={shownScoreboard} */}
 
       </div>
-      {/* {score_data && shownScoreboard && */}
-      {/*   <div className="overflow-hidden absolute transition-all duration-300 ease-in-out top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"> */}
-      {/*     <Scoreboard score_data={score_data} /> */}
-      {/*   </div> */}
-      {/* } */}
-      {/* ${shownScoreboard && score_data ? 'blur-sm' : undefined}  */}
+      {score_data && shownScoreboard &&
+        <div className="overflow-hidden absolute transition-all duration-300 ease-in-out top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+          <Scoreboard score_data={score_data} />
+        </div>
+      }
 
     </main>
 
