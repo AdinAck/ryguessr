@@ -6,7 +6,7 @@ use serde::Serialize;
 
 type Username = String;
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum RoomEvent {
     RoundStart(RoundStartData),
@@ -34,19 +34,19 @@ impl TryFrom<RoomEvent> for sse::Event {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RoundStartData {
     pub pano_id: PanoId,
     pub round: usize,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RoundEndData {
     pub real_location: Coordinates,
     pub player_results: HashMap<Username, PlayerResults>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PlayerResults {
     pub last_score: u32,
     pub cum_score: u32,

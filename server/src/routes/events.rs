@@ -1,26 +1,45 @@
-use std::sync::Arc;
+use std::{pin::Pin, sync::Arc};
 
 use axum::{
     extract::State,
     response::{Sse, sse},
 };
 use axum_extra::TypedHeader;
-use futures_util::{Stream, StreamExt, stream};
+use derive_more::{AsRef, Deref};
+use futures_util::{Stream, StreamExt};
 use reqwest::StatusCode;
 use tokio::sync::RwLock;
+use tokio_stream::wrappers::{BroadcastStream, ReceiverStream};
 
-use crate::{Context, RoomEvent, event::RoundStartData, geo::engine::LocationEngine, handle};
+use crate::{
+    Context, RoomEvent, SharedContext, event::RoundStartData, geo::engine::LocationEngine, handle,
+};
 
-/// Guard that removes a member from their room when the SSE stream is dropped (client disconnects).
-struct DisconnectGuard {
-    context: Arc<RwLock<Context>>,
+#[derive(AsRef, Deref)]
+pub struct EventStream {
+    #[deref]
+    stream: ReceiverStream<RoomEvent>,
+
+    context: SharedContext,
     client_id: handle::Id,
 }
 
-impl Drop for DisconnectGuard {
+impl Stream for EventStream {
+    type Item = RoomEvent;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        Pin::new(&mut self.get_mut().stream).poll_next(cx)
+    }
+}
+
+impl Drop for EventStream {
     fn drop(&mut self) {
         let context = self.context.clone();
         let client_id = self.client_id.clone();
+
         tokio::spawn(async move {
             let mut cx = context.write().await;
             cx.remove_client(&client_id);
@@ -41,26 +60,20 @@ pub async fn sse_event_handler(
 
     let round = room.round;
     let pano_id = room.location.pano_id.clone();
-    let initial_event = stream::once(async move {
-        let event = RoomEvent::RoundStart(RoundStartData { pano_id, round });
-        event.try_into()
+    let initial_event = RoomEvent::RoundStart(RoundStartData { pano_id, round });
+
+    let rx = room.event_tx.subscribe();
+
+    let stream = BroadcastStream::new(rx).map(|result| match result {
+        Ok(event) => Ok(event.try_into()?),
+        Err(e) => {
+            tracing::error!(%e, "failed to serialize event");
+
+            Err(axum::Error::new(e))
+        }
     });
 
-    let mut rx = room.event_tx.subscribe();
-    drop(cx);
+    room.event_tx.send(initial_event).unwrap();
 
-    let guard = DisconnectGuard { context, client_id };
-
-    let stream = async_stream::stream! {
-        // Hold the guard alive for the lifetime of the stream.
-        let _guard = guard;
-        while let Ok(event) = rx.recv().await {
-            match event.try_into() {
-                Ok(event_json) => yield Ok(event_json),
-                Err(err) => tracing::error!(%err, "failed to serialize event"),
-            }
-        }
-    };
-
-    Ok(Sse::new(initial_event.chain(stream)))
+    Ok(Sse::new(stream))
 }

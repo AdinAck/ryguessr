@@ -12,7 +12,7 @@ pub struct Location {
     pub pano_id: PanoId,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Coordinates {
     pub lat: f64,
     pub lng: f64,
