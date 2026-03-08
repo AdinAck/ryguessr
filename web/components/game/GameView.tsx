@@ -138,7 +138,7 @@ export const GameView = ({ userID }: { userID: string }) => {
     <main className="bg-black relative h-screen w-screen overflow-hidden">
       {userName
         ?
-        <div className={`${shownScoreboard && score_data ? 'blur-sm' : undefined} absolute inset-0 z-0`}>
+        <div className={`${shownScoreboard && score_data ? 'blur-sm pointer-events-none' : undefined} absolute inset-0 z-0`}>
           {location
             ?
             <Streetview panoId={panoId} />
