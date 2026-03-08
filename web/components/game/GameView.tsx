@@ -51,9 +51,9 @@ export const GameView = ({ userID }: { userID: string }) => {
       es.addEventListener('round-start', (event) => {
         const round_start: RoundStart = JSON.parse(event.data);
         console.log("round start")
-        console.log(round_start.RoundStart.round);
-        setPanoId(round_start.RoundStart.pano_id);
-        setRoundNumber(round_start.RoundStart.round);
+        console.log(round_start.round);
+        setPanoId(round_start.pano_id);
+        setRoundNumber(round_start.round);
         setHasGuessed(false);
         setHasContinued(false);
       })
@@ -62,8 +62,8 @@ export const GameView = ({ userID }: { userID: string }) => {
       es.addEventListener('round-end', (event) => {
         const round_data = JSON.parse(event.data);
         // console.log(event);
-        // console.log(round_data);
-        setRoundData(round_data.RoundEnd);
+        console.log(round_data);
+        setRoundData(round_data);
       })
       return () => {
         es.close();
