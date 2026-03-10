@@ -1,27 +1,39 @@
-import { Table, TableHead, TableBody, TableCaption, TableCell, TableHeader, TableRow } from "../ui/table";
+"use client"
+import NumberFlow, { continuous } from "@number-flow/react";
 import ScoreData from "@/types/score-data";
 import { memo } from "react";
+import { CSSProperties, useState, useEffect } from "react";
 
 export const Scoreboard = memo(({ score_data }: { score_data: ScoreData }) => {
 
+  const [animateToRealScore, setAnimateToRealScore] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnimateToRealScore(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div className="text-white rounded-lg border-2 w-[50vw] h-full overflow-hidden">
-      <Table bgcolor="black" className="rounded-lg opacity-80">
-        <TableBody>
-          <TableRow className="bg-black/40">
-            {score_data.player_scores.map((score, index) => {
-              return (
-                <>
-                  <TableCell className="font-medium">{score.name}</TableCell>
-                  <TableCell className="text-right">{score.cum_score}</TableCell>
-                </>
-              );
-            })}
-            {/* <TableCell className="font-medium">Player1</TableCell> */}
-            {/* <TableCell className="text-right">250Pts</TableCell> */}
-          </TableRow>
-        </TableBody>
-      </Table>
+    <div className="flex flex-col gap-3 w-[50vw] h-full max-h-[40vh] overflow-y-auto pr-2">
+      {score_data.player_scores.map((score, index) => {
+        return (
+          <div
+            key={score.name} className="flex justify-between items-center w-full bg-black/80 border-2 rounded-lg py-2 text-white shadow-md"
+          >
+            <span className="text-sm px-2">{score.name}</span>
+            <NumberFlow
+              className="text-right px-2 text-sm font-semibold overflow-hidden"
+              plugins={[continuous]}
+              value={animateToRealScore ? score.cum_score : ((score.cum_score - score.last_score) || 0)}
+              style={{ '--number-flow-mask-height': '0.3em' } as CSSProperties}
+            />
+          </div>
+        );
+      })}
+
     </div>
 
   );

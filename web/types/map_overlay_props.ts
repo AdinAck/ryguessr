@@ -5,9 +5,9 @@ interface MapOverlayProps {
   roundData?: RoundData,
   hasGuessed: boolean,
   hasContinued: boolean,
-  // shownScoreboard: boolean,
+  shownScoreboard: boolean,
   handleGuess: (hasGuessed: boolean, selectedLocation: Coordinates) => void,
-  // handleScoreboard: () => void,
+  handleScoreboard: () => void,
   handleContinue: () => void,
 };
 

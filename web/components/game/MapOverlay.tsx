@@ -8,7 +8,7 @@ import interpolateGreatCircle from '@/lib/haversine';
 import MapOverlayProps from '@/types/map_overlay_props';
 import Coordinates from '@/types/coordinate_type';
 
-export const MapOverlay = memo(({ hasContinued, roundData, handleGuess, hasGuessed, handleContinue }: MapOverlayProps) => {
+export const MapOverlay = memo(({ hasContinued, roundData, handleGuess, hasGuessed, handleContinue, shownScoreboard, handleScoreboard }: MapOverlayProps) => {
   const [selectedLocation, setSelectedLocation] = useState<Coordinates | null>(null);
 
   const { defaultPosition, locationIconOptions, userIconOptions, mapContainerStyle } = useMemo(() => {
@@ -59,7 +59,7 @@ export const MapOverlay = memo(({ hasContinued, roundData, handleGuess, hasGuess
 
   return (
     <div className="flex gap-2 flex-col gap-2 h-full w-full">
-      <div className='flex-grow w-full rounded-lg overflow-hidden border-2 shadow-xl relative z-0'>
+      <div className={`${roundData?.player_results && shownScoreboard ? 'blur-sm pointer-events-none' : undefined} flex-grow w-full rounded-lg overflow-hidden border-2 shadow-xl relative z-0`}>
 
         <GoogleMap
           mapContainerStyle={mapContainerStyle}
@@ -108,14 +108,15 @@ export const MapOverlay = memo(({ hasContinued, roundData, handleGuess, hasGuess
           variant={"default"}
           onClick={
             hasContinued ? undefined
-              // : shownScoreboard ? handleContinue
-              : hasGuessed ? handleContinue
-                : selectedLocation ? handleMapPanOnGuess
-                  : undefined
+              : shownScoreboard ? handleContinue
+                : hasGuessed ? handleScoreboard
+                  : selectedLocation ? handleMapPanOnGuess
+                    : undefined
           }
         > {hasContinued ? "Waiting for Players..."
-          : hasGuessed ? "Continue"
-            : "Guess"
+          : shownScoreboard ? "Continue"
+            : hasGuessed ? "Show Scoreboard"
+              : "Guess"
           } </Button>
       </div>
     </div>
