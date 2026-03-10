@@ -1,17 +1,21 @@
 "use client"
 import Streetview from "./StreetView";
 import { MapOverlay } from "./MapOverlay";
-import { useCallback, useState, useEffect, useMemo, SubmitEvent, SubmitEventHandler } from "react"
+import { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import { EventSource } from "eventsource";
 import { Scoreboard } from "./Scoreboard";
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button";
+import Settings from "@/components/game/Settings"
 // Type Data
 import RoundData from "@/types/round-data";
 import ScoreData from "@/types/score-data";
 import RoundStart from "@/types/round-start";
 import Coordinates from "@/types/coordinate_type";
+
+// Settings icon
+import { LucideSettings2, Settings2 } from "lucide-react";
 
 export const GameView = ({ userID }: { userID: string }) => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined)
@@ -20,6 +24,10 @@ export const GameView = ({ userID }: { userID: string }) => {
   const [hasContinued, setHasContinued] = useState<boolean>(false);
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+
+  // Room code
+  const roomCode = useRef<string | undefined>(undefined);
 
   // User Name
   const [userName, setUserName] = useState<string | null>(null);
@@ -94,6 +102,9 @@ export const GameView = ({ userID }: { userID: string }) => {
       console.log(response);
       console.log("Error posting username");
     } else {
+      const room_code = await response.json();
+      roomCode.current = room_code;
+      console.log(room_code);
       setUserName(userName);
     };
   };
@@ -135,7 +146,18 @@ export const GameView = ({ userID }: { userID: string }) => {
   }, [])
 
   return (
-    <main className="bg-black relative h-screen w-screen overflow-hidden">
+    <main className="bg-black relative h-dvh w-full overflow-hidden">
+      <div className="absolute top-5 right-5 z-[99] border-2 rounded-lg transition-all duration-100 active:scale-90">
+        <Button variant={"default"} onClick={() => { setShowSettings((prev) => !prev) }} size="icon" color="black" className="aspect-video origin-top-right">
+          <Settings2 color="white" />
+        </Button>
+      </div>
+      {showSettings && roomCode.current &&
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[99]">
+          <Settings room_code={roomCode.current} />
+        </div>
+      }
+
       {userName
         ?
         <div className={`${shownScoreboard && score_data ? 'blur-sm pointer-events-none' : undefined} absolute inset-0 z-0`}>
