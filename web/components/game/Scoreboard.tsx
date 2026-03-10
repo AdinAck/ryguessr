@@ -1,5 +1,5 @@
 "use client"
-import NumberFlow from "@number-flow/react";
+import NumberFlow, { continuous } from "@number-flow/react";
 import ScoreData from "@/types/score-data";
 import { memo } from "react";
 import { CSSProperties, useState, useEffect } from "react";
@@ -21,11 +21,12 @@ export const Scoreboard = memo(({ score_data }: { score_data: ScoreData }) => {
       {score_data.player_scores.map((score, index) => {
         return (
           <div
-            key={score.name} className="flex justify-between items-center w-full bg-black/80 border-2 rounded-lg p-2 text-white shadow-md"
+            key={score.name} className="flex justify-between items-center w-full bg-black/80 border-2 rounded-lg py-2 text-white shadow-md"
           >
-            <span className="text-sm">{score.name}</span>
+            <span className="text-sm px-2">{score.name}</span>
             <NumberFlow
-              className="text-right text-sm font-semibold"
+              className="text-right px-2 text-sm font-semibold overflow-hidden"
+              plugins={[continuous]}
               value={animateToRealScore ? score.cum_score : ((score.cum_score - score.last_score) || 0)}
               style={{ '--number-flow-mask-height': '0.3em' } as CSSProperties}
             />
