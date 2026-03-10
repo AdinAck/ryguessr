@@ -3,34 +3,25 @@ use std::collections::HashMap;
 use crate::{Coordinates, geo::PanoId};
 use axum::response::sse;
 use serde::Serialize;
+use strum::AsRefStr;
 
 type Username = String;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, AsRefStr)]
 #[serde(untagged)]
+#[strum(serialize_all = "kebab-case")]
 pub enum RoomEvent {
     RoundStart(RoundStartData),
     RoundEnd(RoundEndData),
-    PlayerJoined(Username),
-    PlayerLeft(Username),
-}
-
-impl RoomEvent {
-    pub fn name(&self) -> &'static str {
-        match self {
-            RoomEvent::RoundStart(_) => "round-start",
-            RoomEvent::RoundEnd(_) => "round-end",
-            RoomEvent::PlayerJoined(_) => "player-joined",
-            RoomEvent::PlayerLeft(_) => "player-left",
-        }
-    }
+    PlayerJoined { username: Username },
+    PlayerLeft { username: Username },
 }
 
 impl TryFrom<RoomEvent> for sse::Event {
     type Error = axum::Error;
 
     fn try_from(event: RoomEvent) -> Result<Self, Self::Error> {
-        sse::Event::default().event(event.name()).json_data(event)
+        sse::Event::default().event(event.as_ref()).json_data(event)
     }
 }
 

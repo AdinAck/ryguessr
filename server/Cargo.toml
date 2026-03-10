@@ -25,3 +25,5 @@ tokio-stream = { version = "0.1.18", features = ["sync"] }
 derive_more = { version = "2.1.1", features = ["as_ref", "deref"] }
 axum-extra = { version = "0.12.5", features = ["typed-header"] }
 async-stream = "0.3.6"
+pin-project = "1.1.11"
+strum = { version = "0.28.0", features = ["derive"] }

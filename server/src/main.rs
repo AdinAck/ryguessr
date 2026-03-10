@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
 use axum::{
     Router,
@@ -13,7 +13,6 @@ use ryguessr::{
     },
     routes,
 };
-use tokio::sync::RwLock;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing::info;
 
@@ -35,11 +34,11 @@ async fn main() -> anyhow::Result<()> {
     let total: usize = regions.iter().map(|r| r.count).sum();
     info!("Loaded {} regions, {} total points", regions.len(), total);
 
-    let engine = Arc::new(LocationEngine::new(
+    let engine = LocationEngine::new(
         StreetViewClient::new(config.google_maps_api_key),
         RandomLocationSampler::new(regions)?,
-    ));
-    let cx = Arc::new(RwLock::new(Context::empty()));
+    );
+    let cx = Context::new(engine);
 
     let app = Router::new()
         .route("/api/init", post(routes::init::init_handler))
@@ -47,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/guess", post(routes::guess::guess_handler))
         .route("/api/next", post(routes::next::next_handler))
         .route("/api/join", post(routes::join::join_handler))
-        .with_state((cx, engine))
+        .with_state(cx)
         .layer(TraceLayer::new_for_http())
         .fallback_service(ServeDir::new("../web/out"));
 
