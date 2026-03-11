@@ -26,5 +26,9 @@ pub async fn init_handler(
     let username = model.generate_unique_name();
     let (room_id, color) = model.create_room(location, client_id.clone(), username.clone());
 
-    Ok(Json(InitResponse { room_id, username, color }))
+    Ok(Json(InitResponse {
+        room_id,
+        username,
+        color,
+    }))
 }
