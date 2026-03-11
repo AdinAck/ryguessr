@@ -15,7 +15,7 @@ import RoundStart from "@/types/round-start";
 import Coordinates from "@/types/coordinate_type";
 
 // Settings icon
-import { LucideSettings2, Settings2 } from "lucide-react";
+import { Settings2 } from "lucide-react";
 
 export const GameView = ({ userID }: { userID: string }) => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined)
@@ -147,8 +147,8 @@ export const GameView = ({ userID }: { userID: string }) => {
 
   return (
     <main className="bg-black relative h-dvh w-full overflow-hidden">
-      <div className="absolute top-5 right-5 z-[99] border-2 rounded-lg transition-all duration-100 active:scale-90">
-        <Button variant={"default"} onClick={() => { setShowSettings((prev) => !prev) }} size="icon" color="black" className="aspect-video origin-top-right">
+      <div className="absolute top-5 right-5 z-[99] bg-background border-1 border-white rounded-lg transition-all duration-100 active:scale-90">
+        <Button variant={"outline"} onClick={() => { setShowSettings((prev) => !prev) }} size="icon" color="black" className="aspect-video origin-top-right">
           <Settings2 color="white" />
         </Button>
       </div>
