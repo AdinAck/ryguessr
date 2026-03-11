@@ -6,7 +6,9 @@ use tokio::sync::RwLock;
 use crate::{
     Handle, Room,
     geo::{Location, engine::LocationEngine},
-    handle, room,
+    handle,
+    name_gen::NameGenerator,
+    room,
 };
 
 pub type SharedModel = Arc<RwLock<Model>>;
@@ -22,6 +24,7 @@ pub struct Context {
 pub struct Model {
     pub clients: HashMap<handle::Id, Handle>,
     pub rooms: HashMap<room::Id, Room>,
+    pub name_generator: NameGenerator,
 }
 
 impl Context {
@@ -35,6 +38,29 @@ impl Context {
 }
 
 impl Model {
+    pub fn generate_unique_name(&self) -> String {
+        let mut name = self.name_generator.generate();
+        // Check for collisions across all existing clients.
+        while self.clients.values().any(|c| c.username == name) {
+            name = self.name_generator.generate();
+        }
+        name
+    }
+
+    pub fn set_name(&mut self, client_id: &handle::Id, new_name: String) -> Result<(), StatusCode> {
+        // Check for name collision across all existing clients.
+        if self.clients.values().any(|c| c.username == new_name) {
+            return Err(StatusCode::CONFLICT);
+        }
+
+        let handle = self
+            .clients
+            .get_mut(client_id)
+            .ok_or(StatusCode::UNAUTHORIZED)?;
+        handle.username = new_name;
+        Ok(())
+    }
+
     pub fn move_client_to_room(
         &mut self,
         client_id: &handle::Id,
@@ -80,7 +106,7 @@ impl Model {
         self.remove_from_room(client_id, &handle.room);
     }
 
-    pub fn create_room_with_user(
+    pub fn create_room(
         &mut self,
         location: Location,
         client_id: handle::Id,
