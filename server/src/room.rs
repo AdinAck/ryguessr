@@ -7,7 +7,7 @@ use tokio::sync::broadcast;
 use crate::{
     Coordinates, RoomEvent,
     event::{PlayerResults, RoundEndData, RoundStartData},
-    geo::{Location, engine::LocationEngine},
+    geo::Location,
     handle, score,
 };
 
@@ -62,7 +62,7 @@ impl Room {
         self.members.insert(client_id.clone(), member_attrs);
 
         // Broadcast join event
-        let _ = self.event_tx.send(RoomEvent::PlayerJoined(username));
+        let _ = self.event_tx.send(RoomEvent::PlayerJoined { username });
     }
 
     pub fn remove_member(&mut self, client_id: &handle::Id) {
@@ -71,32 +71,29 @@ impl Room {
         };
 
         // Broadcast leave event
-        let _ = self.event_tx.send(RoomEvent::PlayerLeft(member.username));
+        let _ = self.event_tx.send(RoomEvent::PlayerLeft {
+            username: member.username,
+        });
     }
 
-    /// Handle a ready submission from a member of the room. This will broadcast if everyone is ready to move on to the next round.
-    pub async fn submit_ready(&mut self, client_id: &handle::Id, engine: &LocationEngine) {
+    /// Handle a ready submission from a member of the room.
+    /// Returns true if everyone is ready.
+    pub fn submit_ready(&mut self, client_id: &handle::Id) -> bool {
         let Some(member) = self.members.get_mut(client_id) else {
-            return;
+            return false;
         };
 
         member.ready_next_round = true;
 
-        if !self.members.values().all(|m| m.ready_next_round) {
-            return;
-        };
+        self.members.values().all(|m| m.ready_next_round)
+    }
 
-        // Everyone is ready, start the next round
-        let new_location = match engine.get_random_location().await {
-            Ok(loc) => loc,
-            Err(e) => {
-                tracing::error!(%e, "failed to get new location for next round");
-                return;
-            }
-        };
+    /// Transition to next round
+    pub fn start_next_round(&mut self, new_location: Location) {
         let pano_id = new_location.pano_id.clone();
         self.location = new_location;
 
+        // Reset ready status for next round
         for member in self.members.values_mut() {
             member.ready_next_round = false;
         }

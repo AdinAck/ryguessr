@@ -1,38 +1,16 @@
-use std::sync::Arc;
-
+use axum::http::StatusCode;
 use axum::{Json, extract::State};
 use axum_extra::TypedHeader;
-use reqwest::StatusCode;
-use tokio::sync::RwLock;
 
-use crate::{Context, geo::engine::LocationEngine, handle, room};
+use crate::{Context, handle, room};
 
 #[tracing::instrument(skip_all, fields(client_id = %*client_id))]
 pub async fn join_handler(
-    State((context, _)): State<(Arc<RwLock<Context>>, Arc<LocationEngine>)>,
+    State(context): State<Context>,
     TypedHeader(client_id): TypedHeader<handle::Id>,
     Json(room_id): Json<room::Id>,
-) -> StatusCode {
-    let mut cx = context.write().await;
+) -> Result<(), StatusCode> {
+    let mut model = context.model.write().await;
 
-    // Remove client from old room
-    let (username, old_room_id) = match cx.clients.get(&client_id) {
-        Some(h) => (h.username.clone(), h.room.clone()),
-        None => return StatusCode::UNAUTHORIZED,
-    };
-    if let Some(old_room) = cx.rooms.get_mut(&old_room_id) {
-        old_room.remove_member(&client_id);
-        if old_room.members.is_empty() {
-            cx.rooms.remove(&old_room_id);
-        }
-    }
-
-    // Add client to new room
-    let new_room = match cx.rooms.get_mut(&room_id) {
-        Some(r) => r,
-        None => return StatusCode::NOT_FOUND,
-    };
-    new_room.add_member(&client_id, username);
-
-    StatusCode::OK
+    model.move_client_to_room(&client_id, &room_id)
 }

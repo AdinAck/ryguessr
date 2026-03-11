@@ -1,29 +1,45 @@
-use std::sync::Arc;
+use std::pin::Pin;
 
+use axum::http::StatusCode;
 use axum::{
     extract::State,
     response::{Sse, sse},
 };
 use axum_extra::TypedHeader;
-use futures_util::{Stream, StreamExt, stream};
-use reqwest::StatusCode;
-use tokio::sync::RwLock;
+use futures_util::{Stream, StreamExt};
+use tokio_stream::wrappers::BroadcastStream;
 
-use crate::{Context, RoomEvent, event::RoundStartData, geo::engine::LocationEngine, handle};
+use crate::{Context, RoomEvent, context::SharedModel, event::RoundStartData, handle};
 
-/// Guard that removes a member from their room when the SSE stream is dropped (client disconnects).
-struct DisconnectGuard {
-    context: Arc<RwLock<Context>>,
+#[pin_project::pin_project(PinnedDrop)]
+pub struct EventStream<S> {
+    #[pin]
+    stream: S,
+
+    model: SharedModel,
     client_id: handle::Id,
 }
 
-impl Drop for DisconnectGuard {
-    fn drop(&mut self) {
-        let context = self.context.clone();
+impl<S: Stream> Stream for EventStream<S> {
+    type Item = S::Item;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.project().stream.poll_next(cx)
+    }
+}
+
+#[pin_project::pinned_drop]
+impl<S> PinnedDrop for EventStream<S> {
+    fn drop(self: Pin<&mut Self>) {
+        let state = self.model.clone();
         let client_id = self.client_id.clone();
+
         tokio::spawn(async move {
-            let mut cx = context.write().await;
-            cx.remove_client(&client_id);
+            let mut state = state.write().await;
+            state.remove_client(&client_id);
             tracing::info!(client_id = %*client_id, "client disconnected, removed from room");
         });
     }
@@ -31,36 +47,39 @@ impl Drop for DisconnectGuard {
 
 #[tracing::instrument(skip_all, fields(client_id = %*client_id))]
 pub async fn sse_event_handler(
-    State((context, _)): State<(Arc<RwLock<Context>>, Arc<LocationEngine>)>,
+    State(context): State<Context>,
     TypedHeader(client_id): TypedHeader<handle::Id>,
 ) -> Result<Sse<impl Stream<Item = Result<sse::Event, axum::Error>>>, StatusCode> {
-    let cx = context.read().await;
-    let handle = cx.clients.get(&client_id).ok_or(StatusCode::UNAUTHORIZED)?;
+    let model = context.model.read().await;
+    let handle = model
+        .clients
+        .get(&client_id)
+        .ok_or(StatusCode::UNAUTHORIZED)?;
     let room_id = handle.room.clone();
-    let room = cx.rooms.get(&room_id).ok_or(StatusCode::NOT_FOUND)?;
+    let room = model.rooms.get(&room_id).ok_or(StatusCode::NOT_FOUND)?;
 
     let round = room.round;
     let pano_id = room.location.pano_id.clone();
-    let initial_event = stream::once(async move {
-        let event = RoomEvent::RoundStart(RoundStartData { pano_id, round });
-        event.try_into()
+    let initial_event = RoomEvent::RoundStart(RoundStartData { pano_id, round });
+
+    let rx = room.event_tx.subscribe();
+
+    let broadcast_stream = BroadcastStream::new(rx).map(|result| match result {
+        Ok(event) => Ok(event.try_into()?),
+        Err(e) => {
+            tracing::error!(%e, "failed to serialize event");
+
+            Err(axum::Error::new(e))
+        }
     });
 
-    let mut rx = room.event_tx.subscribe();
-    drop(cx);
-
-    let guard = DisconnectGuard { context, client_id };
-
-    let stream = async_stream::stream! {
-        // Hold the guard alive for the lifetime of the stream.
-        let _guard = guard;
-        while let Ok(event) = rx.recv().await {
-            match event.try_into() {
-                Ok(event_json) => yield Ok(event_json),
-                Err(err) => tracing::error!(%err, "failed to serialize event"),
-            }
-        }
+    let event_stream = EventStream {
+        stream: broadcast_stream,
+        model: context.model.clone(),
+        client_id: client_id.clone(),
     };
 
-    Ok(Sse::new(initial_event.chain(stream)))
+    room.event_tx.send(initial_event).unwrap();
+
+    Ok(Sse::new(event_stream))
 }

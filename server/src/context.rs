@@ -1,20 +1,75 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
-use crate::{Handle, Room, geo::Location, handle, room};
+use axum::http::StatusCode;
+use tokio::sync::RwLock;
+
+use crate::{
+    Handle, Room,
+    geo::{Location, engine::LocationEngine},
+    handle, room,
+};
+
+pub type SharedModel = Arc<RwLock<Model>>;
 
 /// The context available to the API surface to facilitate the ryguessr services.
+#[derive(Clone)]
 pub struct Context {
+    pub engine: Arc<LocationEngine>,
+    pub model: SharedModel,
+}
+
+#[derive(Default)]
+pub struct Model {
     pub clients: HashMap<handle::Id, Handle>,
     pub rooms: HashMap<room::Id, Room>,
 }
 
 impl Context {
     /// Create an empty context.
-    pub fn empty() -> Self {
+    pub fn new(engine: LocationEngine) -> Self {
         Self {
-            clients: Default::default(),
-            rooms: Default::default(),
+            engine: Arc::new(engine),
+            model: Arc::new(RwLock::new(Model::default())),
         }
+    }
+}
+
+impl Model {
+    pub fn move_client_to_room(
+        &mut self,
+        client_id: &handle::Id,
+        new_room_id: &room::Id,
+    ) -> Result<(), StatusCode> {
+        let handle = self
+            .clients
+            .get(client_id)
+            .ok_or(StatusCode::UNAUTHORIZED)?;
+
+        if &handle.room == new_room_id {
+            return Ok(());
+        }
+
+        // Validate new room exists before making any changes
+        if !self.rooms.contains_key(new_room_id) {
+            return Err(StatusCode::NOT_FOUND);
+        }
+
+        let username = handle.username.clone();
+        let old_room_id = handle.room.clone();
+
+        // Remove client from old room
+        self.remove_from_room(client_id, &old_room_id);
+
+        // Add client to new room
+        self.rooms
+            .get_mut(new_room_id)
+            .unwrap()
+            .add_member(client_id, username);
+
+        // Update client's handle
+        self.clients.get_mut(client_id).unwrap().room = new_room_id.clone();
+
+        Ok(())
     }
 
     /// Remove a client from its room and from the client list, cleaning up empty rooms.
@@ -22,14 +77,7 @@ impl Context {
         let Some(handle) = self.clients.remove(client_id) else {
             return;
         };
-        let room_id = &handle.room;
-        if let Some(room) = self.rooms.get_mut(room_id) {
-            room.remove_member(client_id);
-            if room.members.is_empty() {
-                tracing::info!(room_id = %room_id.as_ref(), "room empty, cleaning up...");
-                self.rooms.remove(room_id);
-            }
-        }
+        self.remove_from_room(client_id, &handle.room);
     }
 
     pub fn create_room_with_user(
@@ -59,5 +107,25 @@ impl Context {
         );
 
         room_id
+    }
+
+    pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, StatusCode> {
+        let room_id = self
+            .clients
+            .get(client_id)
+            .ok_or(StatusCode::UNAUTHORIZED)?
+            .room
+            .clone();
+        self.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)
+    }
+
+    fn remove_from_room(&mut self, client_id: &handle::Id, room_id: &room::Id) {
+        if let Some(room) = self.rooms.get_mut(room_id) {
+            room.remove_member(client_id);
+            if room.members.is_empty() {
+                tracing::info!(room_id = %room_id.as_ref(), "room empty, cleaning up...");
+                self.rooms.remove(room_id);
+            }
+        }
     }
 }
