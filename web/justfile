@@ -19,7 +19,7 @@ lint:
 
 # Rebuild on file changes
 watch:
-    watchexec -w app -w components -w lib -e ts,tsx,js,jsx,css,html -- npm run build
+    watchexec -w src -e ts,tsx,js,jsx,css,html -- npm run build
 
 # Install dependencies
 install:

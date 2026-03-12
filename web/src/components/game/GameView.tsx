@@ -17,6 +17,9 @@ import Coordinates from "@/types/coordinate_type";
 // Settings icon
 import { Settings2 } from "lucide-react";
 
+// Zustand
+import { RoomSettingsActions } from "@/store/useSettingsStore";
+
 export const GameView = ({ userID }: { userID: string }) => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined)
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
@@ -25,11 +28,6 @@ export const GameView = ({ userID }: { userID: string }) => {
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
-
-  // Room code
-  const roomCode = useRef<string | undefined>(undefined);
-
-  // User Name
   const [userName, setUserName] = useState<string | null>(null);
 
   const score_data = useMemo(() => {
@@ -103,8 +101,7 @@ export const GameView = ({ userID }: { userID: string }) => {
       console.log("Error posting username");
     } else {
       const room_code = await response.json();
-      roomCode.current = room_code;
-      console.log(room_code);
+      RoomSettingsActions.updateRoomCode(room_code)
       setUserName(userName);
     };
   };
@@ -152,9 +149,9 @@ export const GameView = ({ userID }: { userID: string }) => {
           <Settings2 color="white" />
         </Button>
       </div>
-      {showSettings && roomCode.current &&
+      {showSettings &&
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[99]">
-          <Settings room_code={roomCode.current} />
+          <Settings />
         </div>
       }
 
