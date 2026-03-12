@@ -15,6 +15,9 @@ import Coordinates from "@/types/coordinate_type";
 // Settings icon
 import { Settings2 } from "lucide-react";
 
+// Zustand
+import { RoomSettingsActions } from "@/store/useSettingsStore";
+
 export const GameView = ({ userID }: { userID: string }) => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined)
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
