@@ -101,11 +101,11 @@ export const MapOverlay = memo(({ hasContinued, roundData, handleGuess, hasGuess
           }
         </GoogleMap>
       </div>
-      <div className='w-full z-10'>
+      <div className='w-full z-10 rounded-lg bg-background transition-transform duration-150 ease-in-out active:scale-95'>
         <Button
-          className={"w-full tracking-widest shadow-lg transition-transform duration-150 ease-in-out active:scale-95"}
+          className={"w-full bg-background text-white tracking-widest shadow-lg"}
           size={"default"}
-          variant={"default"}
+          variant={"outline"}
           onClick={
             hasContinued ? undefined
               : shownScoreboard ? handleContinue
