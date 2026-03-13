@@ -22,6 +22,14 @@ type StreetviewStateAction = {
   setUserNavigationEnabled: (userNaviagtionEnabled: StreetviewState['userNavigationEnabled']) => void,
 }
 
+type UsernameState = {
+  username: string,
+};
+
+type UsernameStateAction = {
+  setUsername: (username: UsernameState['username']) => void
+};
+
 export const useRoomSettings = create<RoomState>()(() => ({
   roomCode: "",
 }))
@@ -55,5 +63,15 @@ export const StreetviewStateActions: StreetviewStateAction = {
     useStreetviewSettings.setState({ userNavigationEnabled });
   }
 
+};
+
+export const useUsernameSettings = create<UsernameState>()(() => ({
+  username: "",
+}))
+
+export const usernameStateActions: UsernameStateAction = {
+  setUsername: (username: string) => {
+    useUsernameSettings.setState({ username })
+  },
 };
 
