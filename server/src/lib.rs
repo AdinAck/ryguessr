@@ -3,7 +3,7 @@ pub mod context;
 mod event;
 pub mod geo;
 mod handle;
-mod name_gen;
+pub mod name_gen;
 mod room;
 pub mod routes;
 mod score;
