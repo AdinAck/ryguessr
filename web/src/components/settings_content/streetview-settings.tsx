@@ -22,7 +22,7 @@ const StreetviewSettings = () => {
       <p className="text-xl font-semibold">Streetview</p>
       <Separator />
       <div className="flex items-center justify-between space-x-2">
-        <Label htmlFor="panningGesturesEnabled">Enable Panning Gestures</Label>
+        <Label htmlFor="panningGesturesEnabled">Enable Panning Gestures (Low Res)</Label>
         <Switch checked={panning} onCheckedChange={StreetviewStateActions.setPanningGesturesEnabled} id="panningGesturesEnabled" />
       </div>
       <Separator />
