@@ -1,0 +1,146 @@
+/* src/css/rcp.css */
+.rcp-root {
+  --rcp-background-color: transparent; 
+  --rcp-field-input-color: var(--foreground);
+  --rcp-field-input-border-color: var(--input);
+  --rcp-field-label-color: var(--muted-foreground);
+}
+.rcp {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--rcp-background-color);
+  border-radius: var(--radius); 
+}
+.rcp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 10px;
+}
+.rcp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rcp-interactive {
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  touch-action: none;
+}
+.rcp-interactive[aria-disabled=true] {
+  cursor: unset;
+  pointer-events: none;
+}
+.rcp-saturation {
+  cursor: all-scroll;
+  width: 100%;
+  position: relative;
+  background-image:
+    linear-gradient(
+      to bottom,
+      transparent,
+      black),
+    linear-gradient(
+      to right,
+      white,
+      transparent);
+  border-radius: 10px 10px 0 0;
+}
+.rcp-saturation-cursor {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid white;
+  border-radius: 100%;
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  transform: translate(-10px, -10px);
+}
+.rcp-hue {
+  cursor: ew-resize;
+  position: relative;
+  width: 100%;
+  height: 12px;
+  background-image:
+    linear-gradient(
+      to right,
+      rgb(255, 0, 0),
+      rgb(255, 255, 0),
+      rgb(0, 255, 0),
+      rgb(0, 255, 255),
+      rgb(0, 0, 255),
+      rgb(255, 0, 255),
+      rgb(255, 0, 0));
+  border-radius: 10px;
+}
+.rcp-hue-cursor {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid white;
+  border-radius: 100%;
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  transform: translate(-10px, -4px);
+}
+.rcp-alpha {
+  cursor: ew-resize;
+  position: relative;
+  width: 100%;
+  height: 12px;
+  border-radius: 10px;
+}
+.rcp-alpha-cursor {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid white;
+  border-radius: 100%;
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  transform: translate(-10px, -4px);
+}
+.rcp-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rcp-fields-floor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.rcp-field {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.rcp-field-input {
+  width: 100%;
+  height: 2.25rem; 
+  padding: 0.25rem 0.75rem;
+  border-radius: calc(var(--radius) - 2px); 
+  font-family: inherit;
+  font-size: 0.875rem; 
+  text-align: center;
+  color: var(--rcp-field-input-color);
+  outline: none;
+  background-color: transparent;
+  border: 1px solid var(--rcp-field-input-border-color);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); 
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.rcp-field-input:read-only {
+  opacity: 0.5;
+}
+
+.rcp-field-input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 1px var(--ring);
+}
+
+.rcp-field-label {
+  font-size: 0.75rem; 
+  font-weight: 500; 
+  text-align: center;
+  margin-top: 0.25rem;
+  color: var(--rcp-field-label-color);
+}
