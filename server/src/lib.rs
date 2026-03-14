@@ -1,4 +1,4 @@
-mod colors;
+pub mod colors;
 pub mod config;
 pub mod context;
 mod event;

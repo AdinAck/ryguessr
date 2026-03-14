@@ -55,6 +55,12 @@ impl Iterator for DistinctColors {
     }
 }
 
+impl Default for DistinctColors {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn lerp(a: f64, b: f64, t: f64) -> f64 {
     a + (b - a) * t
 }
