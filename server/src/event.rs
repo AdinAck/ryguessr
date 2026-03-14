@@ -43,6 +43,7 @@ pub struct PlayerResults {
     pub cum_score: u32,
     pub distance: f64,
     pub guess_location: Coordinates,
+    pub color: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
