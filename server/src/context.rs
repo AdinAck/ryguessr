@@ -61,6 +61,29 @@ impl Model {
         Ok(())
     }
 
+    pub fn set_color(
+        &mut self,
+        client_id: &handle::Id,
+        new_color: String,
+    ) -> Result<(), StatusCode> {
+        let handle = self
+            .clients
+            .get_mut(client_id)
+            .ok_or(StatusCode::UNAUTHORIZED)?;
+        handle.color = new_color.clone();
+
+        // Update the member's color in their current room
+        let room = self
+            .rooms
+            .get_mut(&handle.room)
+            .ok_or(StatusCode::NOT_FOUND)?;
+        if let Some(member) = room.members.get_mut(client_id) {
+            member.color = new_color;
+        }
+
+        Ok(())
+    }
+
     pub fn move_client_to_room(
         &mut self,
         client_id: &handle::Id,
@@ -81,6 +104,7 @@ impl Model {
         }
 
         let username = handle.username.clone();
+        let color = handle.color.clone();
         let old_room_id = handle.room.clone();
 
         // Remove client from old room
@@ -90,7 +114,7 @@ impl Model {
         self.rooms
             .get_mut(new_room_id)
             .unwrap()
-            .add_member(client_id, username);
+            .add_member(client_id, username, Some(color));
 
         // Update client's handle
         self.clients.get_mut(client_id).unwrap().room = new_room_id.clone();
@@ -132,6 +156,7 @@ impl Model {
             Handle {
                 room: room_id.clone(),
                 username,
+                color: color.clone(),
             },
         );
 

@@ -38,16 +38,8 @@ impl Room {
     pub fn new(location: Location, client_id: handle::Id, username: String) -> Self {
         let (event_tx, _) = broadcast::channel(16);
         let mut colors = DistinctColors::new();
-        let members = HashMap::from([(
-            client_id,
-            MemberAttributes {
-                username,
-                score: 0,
-                guess: None,
-                color: colors.next().unwrap(),
-                ready_next_round: false,
-            },
-        )]);
+        let color = colors.next().unwrap();
+        let members = HashMap::from([(client_id, MemberAttributes::new(username, color))]);
         Self {
             members,
             round: 0,
@@ -58,16 +50,13 @@ impl Room {
         }
     }
 
-    pub fn add_member(&mut self, client_id: &handle::Id, username: String) {
-        let color = self.colors.next().unwrap(); // Assign a distinct color to the new member
-        let member_attrs = MemberAttributes {
-            username: username.clone(),
-            score: 0,
-            guess: None,
-            color: color.clone(),
-            ready_next_round: false,
-        };
-        self.members.insert(client_id.clone(), member_attrs);
+    /// Add a member to the room. If `color` is not provided, a new distinct color is generated.
+    pub fn add_member(&mut self, client_id: &handle::Id, username: String, color: Option<String>) {
+        let color = color.unwrap_or_else(|| self.colors.next().unwrap());
+        self.members.insert(
+            client_id.clone(),
+            MemberAttributes::new(username.clone(), color.clone()),
+        );
 
         // Broadcast join event
         let _ = self
@@ -183,6 +172,18 @@ pub struct MemberAttributes {
     pub color: String,
     /// Whether the member is ready to move on to the next round.
     pub ready_next_round: bool,
+}
+
+impl MemberAttributes {
+    pub fn new(username: String, color: String) -> Self {
+        Self {
+            username,
+            score: 0,
+            guess: None,
+            color,
+            ready_next_round: false,
+        }
+    }
 }
 
 /// The unique identifier for a [`Room`].

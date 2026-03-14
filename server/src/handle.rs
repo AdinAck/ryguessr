@@ -10,6 +10,8 @@ pub struct Handle {
     pub room: room::Id,
     /// The chosen username of the associated client.
     pub username: String,
+    /// The hex color assigned to the client, persisted across rooms.
+    pub color: String,
 }
 
 /// The unique identifier for a [`Handle`].
