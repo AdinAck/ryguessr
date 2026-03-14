@@ -138,6 +138,7 @@ impl Room {
                 .values()
                 .map(|m| {
                     let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
+                    let color = m.color.clone();
                     let distance =
                         score::haversine_distance(&guess_location, &self.location.coordinates);
                     let last_score = score::calculate_score(distance) as u32;
@@ -148,6 +149,7 @@ impl Room {
                             cum_score: m.score,
                             distance,
                             guess_location,
+                            color,
                         },
                     )
                 })
