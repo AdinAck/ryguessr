@@ -9,15 +9,14 @@ import "@/components/ui/react-color-palette.css";
 // import "react-color-palette/css";
 
 // Zustand
-import { useUsernameSettings } from "@/store/useSettingsStore";
-import { usernameStateActions } from "@/store/useSettingsStore";
+import { useUserSettings } from "@/store/useSettingsStore";
+import { userStateActions } from "@/store/useSettingsStore";
 
 
 
 const UsernameSettings = () => {
-  const [color, setColor] = useColor("#FFFFFF");
-
-  const username = useUsernameSettings((state) => state.username);
+  const { username, iconColor } = useUserSettings();
+  const [color, setColor] = useColor(iconColor ? iconColor : "#FFFFFF");
 
   return (
     <>
@@ -50,7 +49,7 @@ const UsernameSettings = () => {
         <div className="w-full">
 
           <ColorPicker
-            color={color} onChange={setColor} hideAlpha={true}
+            color={color} onChange={setColor} hideAlpha={true} onChangeComplete={(color) => userStateActions.setIconColor(color.hex)}
           />
         </div>
       </div>
