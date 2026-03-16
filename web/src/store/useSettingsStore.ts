@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from 'zustand/middleware'
 
 type RoomState = {
   roomCode: string,
@@ -22,12 +23,14 @@ type StreetviewStateAction = {
   setUserNavigationEnabled: (userNaviagtionEnabled: StreetviewState['userNavigationEnabled']) => void,
 }
 
-type UsernameState = {
-  username: string,
-};
+interface UserState {
+  username: string;
+  iconColor: string;
+}
 
-type UsernameStateAction = {
-  setUsername: (username: UsernameState['username']) => void
+type UserStateAction = {
+  setUsername: (username: UserState['username']) => void,
+  setIconColor: (iconColor: UserState['iconColor']) => void
 };
 
 export const useRoomSettings = create<RoomState>()(() => ({
@@ -65,13 +68,24 @@ export const StreetviewStateActions: StreetviewStateAction = {
 
 };
 
-export const useUsernameSettings = create<UsernameState>()(() => ({
-  username: "",
-}))
+export const useUserSettings = create<UserState>()(
+  persist(
+    () => ({
+      username: "Guest",
+      iconColor: "#FFFFFF",
+    }),
+    { 
+      name: 'player-preferences-storage' 
+    }
+  )
+);
 
-export const usernameStateActions: UsernameStateAction = {
+export const userStateActions: UserStateAction = {
   setUsername: (username: string) => {
-    useUsernameSettings.setState({ username })
+    useUserSettings.setState({ username })
+  },
+  setIconColor: (iconColor: string) => {
+    useUserSettings.setState({ iconColor })
   },
 };
 
