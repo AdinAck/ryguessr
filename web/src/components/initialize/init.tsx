@@ -11,13 +11,14 @@ import UserInit from "@/types/user-init"
 import { playerActions } from "@/store/useSettingsStore"
 import { RoomSettingsActions } from "@/store/useSettingsStore"
 import { useUserSettings } from "@/store/useSettingsStore"
+import { init } from "next/dist/compiled/webpack/webpack"
 
 const api_init = async (currentUserID: string, savedUsername?: string, savedIconColor?: string) => {
   const response = await fetch("/api/init", {
     method: "POST",
-    body: JSON.stringify({
-      savedUsername, savedIconColor
-    }),
+    body: savedUsername && savedIconColor ? JSON.stringify({
+      username: savedUsername, color: savedIconColor
+    }) : savedUsername && !savedIconColor ? JSON.stringify({ username: savedUsername }) : !savedUsername && savedIconColor ? JSON.stringify({ color: savedIconColor }) : JSON.stringify({}),
     headers: {
       "Content-Type": "application/json",
       "Client-Id": currentUserID,
@@ -28,7 +29,8 @@ const api_init = async (currentUserID: string, savedUsername?: string, savedIcon
   } else {
     const init_response: UserInit = await response.json();
     RoomSettingsActions.updateRoomCode(init_response.room_id);
-    playerActions.setSessionData(init_response.username, init_response.icon_color);
+    console.log(init_response.color);
+    playerActions.setSessionData(init_response.username, init_response.color);
   }
 }
 
