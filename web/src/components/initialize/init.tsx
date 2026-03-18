@@ -1,41 +1,42 @@
 "use client"
 import { useCookies } from "react-cookie"
 import { useLoadScript } from "@react-google-maps/api"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { GameView } from "../game/GameView"
 
 // types
 import UserInit from "@/types/user-init"
 
 // zustand
-import { userStateActions } from "@/store/useSettingsStore"
+import { playerActions } from "@/store/useSettingsStore"
 import { RoomSettingsActions } from "@/store/useSettingsStore"
 import { useUserSettings } from "@/store/useSettingsStore"
 
-const api_init = async (currentUserID: string, username?: string, iconColor?: string) => {
+const api_init = async (currentUserID: string, savedUsername?: string, savedIconColor?: string) => {
   const response = await fetch("/api/init", {
     method: "POST",
-    body: JSON.stringify({username, iconColor}),
+    body: JSON.stringify({
+      savedUsername, savedIconColor
+    }),
     headers: {
       "Content-Type": "application/json",
       "Client-Id": currentUserID,
     },
   })
   if (!response.ok) {
-    console.log(response)
+    console.log(response);
   } else {
-    const init_response: UserInit = await response.json()
-    RoomSettingsActions.updateRoomCode(init_response.room_id)
-    userStateActions.setUsername(init_response.username)
-    userStateActions.setIconColor(init_response.icon_color);
+    const init_response: UserInit = await response.json();
+    RoomSettingsActions.updateRoomCode(init_response.room_id);
+    playerActions.setSessionData(init_response.username, init_response.icon_color);
   }
 }
 
 export const Init = () => {
   // cookies
-  const [cookies, setCookie, removeCookie] = useCookies(["USER_ID"])
+  const [cookies, setCookie, removeCookie] = useCookies(["USER_ID"]);
 
-  const { username, iconColor } =  useUserSettings.getState();
+  const { savedUsername, savedIconColor } = useUserSettings.getState();
 
   // Google Maps api
   const { isLoaded } = useLoadScript({
@@ -43,14 +44,14 @@ export const Init = () => {
   })
 
   useEffect(() => {
-    let currentUserID = cookies.USER_ID
+    let currentUserID = cookies.USER_ID;
 
     if (!currentUserID) {
-      const currentUserID = crypto.randomUUID()
-      setCookie("USER_ID", currentUserID)
+      const currentUserID = crypto.randomUUID();
+      setCookie("USER_ID", currentUserID);
     }
 
-    api_init(currentUserID, username, iconColor)
+    api_init(currentUserID, savedUsername, savedIconColor);
   }, [cookies])
 
   return isLoaded && cookies.USER_ID ? (

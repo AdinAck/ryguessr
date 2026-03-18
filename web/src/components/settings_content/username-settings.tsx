@@ -6,28 +6,38 @@ import { Input } from "../ui/input";
 import { MapPin } from 'lucide-react';
 import { ColorPicker, useColor } from "react-color-palette";
 import "@/components/ui/react-color-palette.css";
-// import "react-color-palette/css";
 
 // Zustand
-import { useUserSettings } from "@/store/useSettingsStore";
-import { userStateActions } from "@/store/useSettingsStore";
+import { useGameSession } from "@/store/useSettingsStore";
+import { playerActions } from "@/store/useSettingsStore";
+import { useShallow } from "zustand/shallow";
 
 
 
 const UsernameSettings = () => {
-  const { username, iconColor } = useUserSettings();
-  const [color, setColor] = useColor(iconColor ? iconColor : "#FFFFFF");
+  const { activeUsername, activeIconColor } = useGameSession(useShallow((state) => ({
+    activeUsername: state.activeUsername,
+    activeIconColor: state.activeIconColor
+  })));
+
+  const handleUsernameSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    playerActions.saveCustomUsername(formData.get("username") as string);
+  };
+
+  const [color, setColor] = useColor(activeIconColor ? activeIconColor : "#FFFFFF");
 
   return (
     <>
       <p className="text-xl font-semibold">User</p>
       <Separator />
-      <form className="flex flex-col w-full gap-3">
+      <form onSubmit={(e) => handleUsernameSubmit(e)} className="flex flex-col w-full gap-3">
         <Field className="flex flex-row">
           <Input
             id="input-field-roomcode"
-            defaultValue={username}
-            name="room_code"
+            defaultValue={activeUsername}
+            name="username"
             type="text"
             className="shrink md:text-3xl font-semibold h-auto"
           />
@@ -49,7 +59,7 @@ const UsernameSettings = () => {
         <div className="w-full">
 
           <ColorPicker
-            color={color} onChange={setColor} hideAlpha={true} onChangeComplete={(color) => userStateActions.setIconColor(color.hex)}
+            color={color} onChange={setColor} hideAlpha={true} onChangeComplete={(color) => playerActions.saveCustomColor(color.hex)}
           />
         </div>
       </div>

@@ -23,19 +23,15 @@ type StreetviewStateAction = {
   setUserNavigationEnabled: (userNaviagtionEnabled: StreetviewState['userNavigationEnabled']) => void,
 }
 
-interface UserState {
-  custom_username: string;
-  gen_username: string;
-  custom_iconColor: string;
-  gen_iconColor: string,
+type UserState = {
+  savedUsername?: string;
+  savedIconColor?: string;
 }
 
-type UserStateAction = {
-  setCustomUsername: (username: UserState['custom_username']) => void,
-  setGenUsername: (username: UserState['gen_username']) => void,
-  setCustomIconColor: (iconColor: UserState['custom_iconColor']) => void
-  setGenIconColor: (iconColor: UserState['gen_iconColor']) => void,
-};
+type GameSession = {
+  activeUsername: string;
+  activeIconColor: string;
+}
 
 export const useRoomSettings = create<RoomState>()(() => ({
   roomCode: "",
@@ -72,39 +68,38 @@ export const StreetviewStateActions: StreetviewStateAction = {
 
 };
 
+
 export const useUserSettings = create<UserState>()(
   persist(
-    () => ({
-      custom_username: "",
-      gen_username: "",
-      custom_iconColor: "",
-      gen_iconColor: "",
+    (): UserState => ({
+      savedUsername: undefined,
+      savedIconColor: undefined,
     }),
-    { 
-      name: 'player-preferences-storage', 
-
-      partialize: (state) => ({
-        custom_username: state.custom_username,
-        custom_iconColor: state.custom_iconColor,
-      })
-    }
+    { name: 'player-preferences-storage' }
   )
 );
 
-export const userStateActions: UserStateAction = {
-  setCustomUsername: (custom_username: string) => {
-    useUserSettings.setState({ custom_username })
-  },
-  setGenUsername: (gen_username: string) => {
-    useUserSettings.setState({ gen_username })
+export const useGameSession = create<GameSession>()(() => ({
+  activeUsername: "Loading...",
+  activeIconColor: "#FFFFFF",
+}));
 
-  },
-  setCustomIconColor: (custom_iconColor: string) => {
-    useUserSettings.setState({ custom_iconColor })
-  },
-  setGenIconColor: (gen_iconColor: string) => {
-    useUserSettings.setState({ gen_iconColor })
+export const playerActions = {
+  saveCustomUsername: (name: string) => {
+    useUserSettings.setState({ savedUsername: name });
+    useGameSession.setState({ activeUsername: name });
   },
 
+  saveCustomColor: (color: string) => {
+    useUserSettings.setState({ savedIconColor: color });
+    useGameSession.setState({ activeIconColor: color });
+  },
+
+  setSessionData: (name: string, color: string) => {
+    useGameSession.setState({
+      activeUsername: name,
+      activeIconColor: color
+    });
+  }
 };
 
