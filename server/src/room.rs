@@ -35,10 +35,15 @@ pub struct Room {
 }
 
 impl Room {
-    pub fn new(location: Location, client_id: handle::Id, username: String) -> Self {
+    pub fn new(
+        location: Location,
+        client_id: handle::Id,
+        username: String,
+        color_override: Option<String>,
+    ) -> Self {
         let (event_tx, _) = broadcast::channel(16);
         let mut colors = DistinctColors::new();
-        let color = colors.next().unwrap();
+        let color = color_override.unwrap_or_else(|| colors.next().unwrap());
         let members = HashMap::from([(client_id, MemberAttributes::new(username, color))]);
         Self {
             members,
