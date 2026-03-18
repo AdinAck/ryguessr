@@ -24,13 +24,17 @@ type StreetviewStateAction = {
 }
 
 interface UserState {
-  username: string;
-  iconColor: string;
+  custom_username: string;
+  gen_username: string;
+  custom_iconColor: string;
+  gen_iconColor: string,
 }
 
 type UserStateAction = {
-  setUsername: (username: UserState['username']) => void,
-  setIconColor: (iconColor: UserState['iconColor']) => void
+  setCustomUsername: (username: UserState['custom_username']) => void,
+  setGenUsername: (username: UserState['gen_username']) => void,
+  setCustomIconColor: (iconColor: UserState['custom_iconColor']) => void
+  setGenIconColor: (iconColor: UserState['gen_iconColor']) => void,
 };
 
 export const useRoomSettings = create<RoomState>()(() => ({
@@ -71,21 +75,36 @@ export const StreetviewStateActions: StreetviewStateAction = {
 export const useUserSettings = create<UserState>()(
   persist(
     () => ({
-      username: "Guest",
-      iconColor: "#FFFFFF",
+      custom_username: "",
+      gen_username: "",
+      custom_iconColor: "",
+      gen_iconColor: "",
     }),
     { 
-      name: 'player-preferences-storage' 
+      name: 'player-preferences-storage', 
+
+      partialize: (state) => ({
+        custom_username: state.custom_username,
+        custom_iconColor: state.custom_iconColor,
+      })
     }
   )
 );
 
 export const userStateActions: UserStateAction = {
-  setUsername: (username: string) => {
-    useUserSettings.setState({ username })
+  setCustomUsername: (custom_username: string) => {
+    useUserSettings.setState({ custom_username })
   },
-  setIconColor: (iconColor: string) => {
-    useUserSettings.setState({ iconColor })
+  setGenUsername: (gen_username: string) => {
+    useUserSettings.setState({ gen_username })
+
   },
+  setCustomIconColor: (custom_iconColor: string) => {
+    useUserSettings.setState({ custom_iconColor })
+  },
+  setGenIconColor: (gen_iconColor: string) => {
+    useUserSettings.setState({ gen_iconColor })
+  },
+
 };
 
