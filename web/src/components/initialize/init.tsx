@@ -1,7 +1,7 @@
 "use client"
 import { useCookies } from "react-cookie"
 import { useLoadScript } from "@react-google-maps/api"
-import { useEffect } from "react"
+import { useEffect, useState, useRef } from "react"
 import { GameView } from "../game/GameView"
 
 // types
@@ -11,34 +11,14 @@ import UserInit from "@/types/user-init"
 import { playerActions } from "@/store/useSettingsStore"
 import { RoomSettingsActions } from "@/store/useSettingsStore"
 import { useUserSettings } from "@/store/useSettingsStore"
-import { init } from "next/dist/compiled/webpack/webpack"
-
-const api_init = async (currentUserID: string, savedUsername?: string, savedIconColor?: string) => {
-  const response = await fetch("/api/init", {
-    method: "POST",
-    body: savedUsername && savedIconColor ? JSON.stringify({
-      username: savedUsername, color: savedIconColor
-    }) : savedUsername && !savedIconColor ? JSON.stringify({ username: savedUsername }) : !savedUsername && savedIconColor ? JSON.stringify({ color: savedIconColor }) : JSON.stringify({}),
-    headers: {
-      "Content-Type": "application/json",
-      "Client-Id": currentUserID,
-    },
-  })
-  if (!response.ok) {
-    console.log(response);
-  } else {
-    const init_response: UserInit = await response.json();
-    RoomSettingsActions.updateRoomCode(init_response.room_id);
-    console.log(init_response.color);
-    playerActions.setSessionData(init_response.username, init_response.color);
-  }
-}
 
 export const Init = () => {
   // cookies
   const [cookies, setCookie, removeCookie] = useCookies(["USER_ID"]);
+  const [responseCode, setResponseCode] = useState<number | undefined>();
 
-  const { savedUsername, savedIconColor } = useUserSettings.getState();
+  const hasInitialized = useRef(false);
+
 
   // Google Maps api
   const { isLoaded } = useLoadScript({
@@ -46,17 +26,50 @@ export const Init = () => {
   })
 
   useEffect(() => {
-    let currentUserID = cookies.USER_ID;
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
 
-    if (!currentUserID) {
-      const currentUserID = crypto.randomUUID();
-      setCookie("USER_ID", currentUserID);
-    }
+    const initializeRyguessr = async () => {
 
-    api_init(currentUserID, savedUsername, savedIconColor);
-  }, [cookies])
+      let currentUserID = cookies.USER_ID;
 
-  return isLoaded && cookies.USER_ID ? (
+      if (!currentUserID) {
+        const currentUserID = crypto.randomUUID();
+        setCookie("USER_ID", currentUserID, { path: "/" });
+      }
+
+      const { savedUsername, savedIconColor } = useUserSettings.getState();
+
+      const payload: Record<string, string> = {};
+      if (savedUsername) payload.username = savedUsername;
+      if (savedIconColor) payload.color = savedIconColor;
+
+      try {
+        const response = await fetch("/api/init", {
+          method: "POST",
+          body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : JSON.stringify({}),
+          headers: {
+            "Content-Type": "application/json",
+            "Client-Id": currentUserID,
+          },
+        });
+
+        if (response.ok) {
+          const init_response: UserInit = await response.json();
+          RoomSettingsActions.updateRoomCode(init_response.room_id);
+          playerActions.setSessionData(init_response.username, init_response.color);
+          setResponseCode(response.status);
+        } else {
+          console.error("Initialization failed... status:", response.status);
+        }
+      } catch (error) {
+        console.error("Network error during init:", error);
+      }
+    };
+    initializeRyguessr();
+  }, [])
+
+  return isLoaded && cookies.USER_ID && responseCode == 200 ? (
     <GameView userID={cookies.USER_ID} />
   ) : (
     <div className="h-screen w-screen bg-black text-white flex items-center justify-center">
