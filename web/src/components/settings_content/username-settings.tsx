@@ -9,12 +9,11 @@ import "@/components/ui/react-color-palette.css";
 
 // Zustand
 import { useGameSession } from "@/store/useSettingsStore";
-import { playerActions } from "@/store/useSettingsStore";
 import { useShallow } from "zustand/shallow";
 
 
 
-const UsernameSettings = () => {
+const UsernameSettings = ({handleColorRequest, handleUsernameRequest}: {handleColorRequest: (color: string) => void, handleUsernameRequest: (username: string) => void}) => {
   const { activeUsername, activeIconColor } = useGameSession(useShallow((state) => ({
     activeUsername: state.activeUsername,
     activeIconColor: state.activeIconColor
@@ -23,7 +22,8 @@ const UsernameSettings = () => {
   const handleUsernameSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    playerActions.saveCustomUsername(formData.get("username") as string);
+    const username = formData.get("username") as string;
+    handleUsernameRequest(username)
   };
 
   const [color, setColor] = useColor(activeIconColor ? activeIconColor : "#FFFFFF");
@@ -59,7 +59,7 @@ const UsernameSettings = () => {
         <div className="w-full">
 
           <ColorPicker
-            color={color} onChange={setColor} hideAlpha={true} onChangeComplete={(color) => playerActions.saveCustomColor(color.hex)}
+            color={color} onChange={setColor} hideAlpha={true} onChangeComplete={(color) => handleColorRequest(color.hex)}
           />
         </div>
       </div>
