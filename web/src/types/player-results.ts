@@ -5,6 +5,7 @@ interface PlayerResults {
   cum_score: number,
   distance: number,
   guess_location: Coordinates,
+  color: string,
 };
 
 export default PlayerResults;

@@ -8,6 +8,7 @@ use crate::{Context, handle, room};
 pub struct InitResponse {
     room_id: room::Id,
     username: String,
+    color: String,
 }
 
 #[tracing::instrument(skip_all, fields(client_id = %*client_id))]
@@ -23,7 +24,11 @@ pub async fn init_handler(
 
     let mut model = context.model.write().await;
     let username = model.generate_unique_name();
-    let room_id = model.create_room(location, client_id.clone(), username.clone());
+    let (room_id, color) = model.create_room(location, client_id.clone(), username.clone());
 
-    Ok(Json(InitResponse { room_id, username }))
+    Ok(Json(InitResponse {
+        room_id,
+        username,
+        color,
+    }))
 }

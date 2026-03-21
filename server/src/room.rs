@@ -6,7 +6,8 @@ use tokio::sync::broadcast;
 
 use crate::{
     Coordinates, RoomEvent,
-    event::{PlayerResults, RoundEndData, RoundStartData},
+    colors::DistinctColors,
+    event::{JoinData, PlayerResults, RoundEndData, RoundStartData},
     geo::Location,
     handle, score,
 };
@@ -22,6 +23,8 @@ pub struct Room {
     pub round: usize,
     /// The room's current [`Location`].
     pub location: Location,
+    /// A generator for distinct colors to assign to members of the room for frontend display purposes. The same color will be assigned to the same member across rounds, but different members will have different colors.
+    pub colors: DistinctColors,
     /// The room's current [configuration](Config).
     // Currently unused, but will be used to implement different game modes and constraints in the future.
     #[allow(dead_code)]
@@ -34,41 +37,39 @@ pub struct Room {
 impl Room {
     pub fn new(location: Location, client_id: handle::Id, username: String) -> Self {
         let (event_tx, _) = broadcast::channel(16);
-        let members = HashMap::from([(
-            client_id,
-            MemberAttributes {
-                username,
-                score: 0,
-                guess: None,
-                ready_next_round: false,
-            },
-        )]);
+        let mut colors = DistinctColors::new();
+        let color = colors.next().unwrap();
+        let members = HashMap::from([(client_id, MemberAttributes::new(username, color))]);
         Self {
             members,
             round: 0,
             location,
+            colors,
             config: Config {},
             event_tx,
         }
     }
 
-    pub fn add_member(&mut self, client_id: &handle::Id, username: String) {
-        let member_attrs = MemberAttributes {
-            username: username.clone(),
-            score: 0,
-            guess: None,
-            ready_next_round: false,
-        };
-        self.members.insert(client_id.clone(), member_attrs);
+    /// Add a member to the room. If `color` is not provided, a new distinct color is generated.
+    pub fn add_member(&mut self, client_id: &handle::Id, username: String, color: Option<String>) {
+        let color = color.unwrap_or_else(|| self.colors.next().unwrap());
+        self.members.insert(
+            client_id.clone(),
+            MemberAttributes::new(username.clone(), color.clone()),
+        );
 
         // Broadcast join event
-        let _ = self.event_tx.send(RoomEvent::PlayerJoined { username });
+        let _ = self
+            .event_tx
+            .send(RoomEvent::PlayerJoined(JoinData { username, color }));
     }
 
     pub fn remove_member(&mut self, client_id: &handle::Id) {
         let Some(member) = self.members.remove(client_id) else {
             return;
         };
+
+        self.colors.decrement_index(); // Reuse the color for the next member that joins
 
         // Broadcast leave event
         let _ = self.event_tx.send(RoomEvent::PlayerLeft {
@@ -126,6 +127,7 @@ impl Room {
                 .values()
                 .map(|m| {
                     let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
+                    let color = m.color.clone();
                     let distance =
                         score::haversine_distance(&guess_location, &self.location.coordinates);
                     let last_score = score::calculate_score(distance) as u32;
@@ -136,6 +138,7 @@ impl Room {
                             cum_score: m.score,
                             distance,
                             guess_location,
+                            color,
                         },
                     )
                 })
@@ -164,8 +167,23 @@ pub struct MemberAttributes {
     pub score: u32,
     /// The member's most recent guess for the current round, if they have submitted one.
     pub guess: Option<Coordinates>,
+    /// The color assigned to the member for frontend display purposes.
+    /// In hex format
+    pub color: String,
     /// Whether the member is ready to move on to the next round.
     pub ready_next_round: bool,
+}
+
+impl MemberAttributes {
+    pub fn new(username: String, color: String) -> Self {
+        Self {
+            username,
+            score: 0,
+            guess: None,
+            color,
+            ready_next_round: false,
+        }
+    }
 }
 
 /// The unique identifier for a [`Room`].
