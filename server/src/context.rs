@@ -53,11 +53,22 @@ impl Model {
             return Err(StatusCode::CONFLICT);
         }
 
+        // Update the client's name in the model.
         let handle = self
             .clients
             .get_mut(client_id)
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.username = new_name;
+        handle.username = new_name.clone();
+
+        // Update the client's name in their current room.
+        let room = self
+            .rooms
+            .get_mut(&handle.room)
+            .ok_or(StatusCode::NOT_FOUND)?;
+        if let Some(member) = room.members.get_mut(client_id) {
+            member.username = new_name;
+        }
+
         Ok(())
     }
 
