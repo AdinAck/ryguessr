@@ -22,7 +22,7 @@ pub async fn init_handler(
     jar: CookieJar,
     Json(request): Json<InitRequest>,
 ) -> Result<(CookieJar, Json<InitResponse>), StatusCode> {
-    let (jar, client_id) = match jar.get("client_id") {
+    let (jar, client_id) = match jar.get(handle::ID_COOKIE_NAME) {
         Some(c) => {
             let client_id =
                 handle::Id::try_from(c.value()).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

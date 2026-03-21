@@ -20,7 +20,7 @@ pub struct Handle {
 pub struct Id(pub String);
 
 /// The header name used by the client to identify itself to the server.
-static ID_COOKIE_NAME: &str = "client-id";
+pub const ID_COOKIE_NAME: &str = "client-id";
 
 impl Id {
     pub fn generate() -> Self {
@@ -55,7 +55,7 @@ impl<S: Send + Sync> FromRequestParts<S> for Id {
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        jar.get("client_id")
+        jar.get(ID_COOKIE_NAME)
             .map(|c| Id(c.value().to_string()))
             .ok_or(StatusCode::UNAUTHORIZED)
     }
