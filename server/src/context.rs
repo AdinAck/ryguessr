@@ -53,11 +53,22 @@ impl Model {
             return Err(StatusCode::CONFLICT);
         }
 
+        // Update the client's name in the model.
         let handle = self
             .clients
             .get_mut(client_id)
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.username = new_name;
+        handle.username = new_name.clone();
+
+        // Update the client's name in their current room.
+        let room = self
+            .rooms
+            .get_mut(&handle.room)
+            .ok_or(StatusCode::NOT_FOUND)?;
+        if let Some(member) = room.members.get_mut(client_id) {
+            member.username = new_name;
+        }
+
         Ok(())
     }
 
@@ -136,6 +147,7 @@ impl Model {
         location: Location,
         client_id: handle::Id,
         username: String,
+        color_override: Option<String>,
     ) -> (room::Id, String) {
         // Generate room Id (ensure no collisions)
         let room_id = {
@@ -147,7 +159,12 @@ impl Model {
         };
 
         // Create room + handle
-        let room = Room::new(location, client_id.clone(), username.clone());
+        let room = Room::new(
+            location,
+            client_id.clone(),
+            username.clone(),
+            color_override,
+        );
         let color = room.members.get(&client_id).unwrap().color.clone();
 
         self.rooms.insert(room_id.clone(), room);

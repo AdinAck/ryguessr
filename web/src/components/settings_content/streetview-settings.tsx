@@ -22,23 +22,23 @@ const StreetviewSettings = () => {
       <p className="text-xl font-semibold">Streetview</p>
       <Separator />
       <div className="flex items-center justify-between space-x-2">
-        <Label htmlFor="panningGesturesEnabled">Enable Panning Gestures (Low Res)</Label>
+        <Label htmlFor="panningGesturesEnabled">Panning Gestures</Label>
         <Switch checked={panning} onCheckedChange={StreetviewStateActions.setPanningGesturesEnabled} id="panningGesturesEnabled" />
       </div>
       <Separator />
 
       <div className="flex items-center justify-between space-x-2">
-        <Label htmlFor="streetNamesEnabled">Enable Street Names</Label>
+        <Label htmlFor="streetNamesEnabled">Street Names</Label>
         <Switch checked={streetNames} onCheckedChange={StreetviewStateActions.setStreetNamesEnabled} id="streetNamesEnabled" />
       </div>
       <Separator />
       <div className="flex items-center justify-between space-x-2">
-        <Label htmlFor="zoomGesturesEnabled">Enable Zoom Gestures</Label>
+        <Label htmlFor="zoomGesturesEnabled">Zoom Gestures</Label>
         <Switch checked={zooming} onCheckedChange={StreetviewStateActions.setZoomGesturesEnabled} id="zoomGesturesEnabled" />
       </div>
       <Separator />
       <div className="flex items-center justify-between space-x-2">
-        <Label htmlFor="userNavigationEnabled">Enable User Navigation</Label>
+        <Label htmlFor="userNavigationEnabled">User Navigation</Label>
         <Switch checked={navigation} onCheckedChange={StreetviewStateActions.setUserNavigationEnabled} id="userNavigationEnabled" />
       </div>
     </>

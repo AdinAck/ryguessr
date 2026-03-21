@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from 'zustand/middleware'
 
 type RoomState = {
   roomCode: string,
@@ -22,13 +23,15 @@ type StreetviewStateAction = {
   setUserNavigationEnabled: (userNaviagtionEnabled: StreetviewState['userNavigationEnabled']) => void,
 }
 
-type UsernameState = {
-  username: string,
-};
+type UserState = {
+  savedUsername?: string;
+  savedIconColor?: string;
+}
 
-type UsernameStateAction = {
-  setUsername: (username: UsernameState['username']) => void
-};
+type GameSession = {
+  activeUsername: string;
+  activeIconColor: string;
+}
 
 export const useRoomSettings = create<RoomState>()(() => ({
   roomCode: "",
@@ -65,13 +68,38 @@ export const StreetviewStateActions: StreetviewStateAction = {
 
 };
 
-export const useUsernameSettings = create<UsernameState>()(() => ({
-  username: "",
-}))
 
-export const usernameStateActions: UsernameStateAction = {
-  setUsername: (username: string) => {
-    useUsernameSettings.setState({ username })
+export const useUserSettings = create<UserState>()(
+  persist(
+    (): UserState => ({
+      savedUsername: undefined,
+      savedIconColor: undefined,
+    }),
+    { name: 'player-preferences-storage' }
+  )
+);
+
+export const useGameSession = create<GameSession>()(() => ({
+  activeUsername: "Loading...",
+  activeIconColor: "#FFFFFF",
+}));
+
+export const playerActions = {
+  saveCustomUsername: (name: string) => {
+    useUserSettings.setState({ savedUsername: name });
+    useGameSession.setState({ activeUsername: name });
   },
+
+  saveCustomColor: (color: string) => {
+    useUserSettings.setState({ savedIconColor: color });
+    useGameSession.setState({ activeIconColor: color });
+  },
+
+  setSessionData: (name: string, color: string) => {
+    useGameSession.setState({
+      activeUsername: name,
+      activeIconColor: color
+    });
+  }
 };
 

@@ -9,19 +9,24 @@ import MapOverlayProps from '@/types/map_overlay_props';
 import Coordinates from '@/types/coordinate_type';
 import PlayerResults from '@/types/player-results';
 
+// Zustand
+import { useGameSession } from '@/store/useSettingsStore';
+
 export const MapOverlay = memo(({ hasContinued, roundData, handleGuess, hasGuessed, handleContinue, shownScoreboard, handleScoreboard }: MapOverlayProps) => {
   const [selectedLocation, setSelectedLocation] = useState<Coordinates | null>(null);
 
+  const activeIconColor = useGameSession((state) => state.activeIconColor);
+
   const { userIconOptions, poly_color } = useMemo(() => {
 
-    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="black" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin-icon lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>`
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="${activeIconColor}" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin-icon lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>`
 
     const customIconUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svgString)}`;
     return {
       userIconOptions: { width: 30, height: 30, url: customIconUrl, anchor: new google.maps.Point(16, 30), scaledSize: new window.google.maps.Size(32, 32) },
-      poly_color: "#FF0000",
+      poly_color: activeIconColor,
     };
-  }, [])
+  }, [activeIconColor])
 
   const { locationIconOptions, mapContainerStyle } = useMemo(() => {
     return (
