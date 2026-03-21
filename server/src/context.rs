@@ -148,7 +148,12 @@ impl Model {
         };
 
         // Create room + handle
-        let room = Room::new(location, client_id.clone(), username.clone(), color_override);
+        let room = Room::new(
+            location,
+            client_id.clone(),
+            username.clone(),
+            color_override,
+        );
         let color = room.members.get(&client_id).unwrap().color.clone();
 
         self.rooms.insert(room_id.clone(), room);
