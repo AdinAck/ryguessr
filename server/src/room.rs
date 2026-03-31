@@ -45,7 +45,7 @@ impl Room {
         let mut colors = DistinctColors::new();
         let color = match color_override {
             Some(c) => MemberColor::Custom(c),
-            None => colors.next().unwrap(),
+            None => colors.next_filtered(&[]),
         };
         let members = HashMap::from([(client_id, MemberAttributes::new(username, color))]);
         Self {
@@ -65,9 +65,10 @@ impl Room {
         username: String,
         color_override: Option<String>,
     ) {
+        let occupied: Vec<MemberColor> = self.members.values().map(|m| m.color.clone()).collect();
         let color = match color_override {
             Some(c) => MemberColor::Custom(c),
-            None => self.colors.next().unwrap(),
+            None => self.colors.next_filtered(&occupied),
         };
         self.members.insert(
             client_id.clone(),
