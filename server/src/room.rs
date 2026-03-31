@@ -6,7 +6,7 @@ use tokio::sync::broadcast;
 
 use crate::{
     Coordinates, RoomEvent,
-    colors::DistinctColors,
+    colors::{DistinctColors, MemberColor},
     event::{JoinData, PlayerResults, RoundEndData, RoundStartData},
     geo::Location,
     handle, score,
@@ -43,7 +43,10 @@ impl Room {
     ) -> Self {
         let (event_tx, _) = broadcast::channel(16);
         let mut colors = DistinctColors::new();
-        let color = color_override.unwrap_or_else(|| colors.next().unwrap());
+        let color = match color_override {
+            Some(c) => MemberColor::Custom(c),
+            None => colors.next().unwrap(),
+        };
         let members = HashMap::from([(client_id, MemberAttributes::new(username, color))]);
         Self {
             members,
@@ -56,17 +59,26 @@ impl Room {
     }
 
     /// Add a member to the room. If `color` is not provided, a new distinct color is generated.
-    pub fn add_member(&mut self, client_id: &handle::Id, username: String, color: Option<String>) {
-        let color = color.unwrap_or_else(|| self.colors.next().unwrap());
+    pub fn add_member(
+        &mut self,
+        client_id: &handle::Id,
+        username: String,
+        color_override: Option<String>,
+    ) {
+        let color = match color_override {
+            Some(c) => MemberColor::Custom(c),
+            None => self.colors.next().unwrap(),
+        };
         self.members.insert(
             client_id.clone(),
             MemberAttributes::new(username.clone(), color.clone()),
         );
 
         // Broadcast join event
-        let _ = self
-            .event_tx
-            .send(RoomEvent::PlayerJoined(JoinData { username, color }));
+        let _ = self.event_tx.send(RoomEvent::PlayerJoined(JoinData {
+            username,
+            color: color.into(),
+        }));
     }
 
     pub fn remove_member(&mut self, client_id: &handle::Id) {
@@ -74,7 +86,9 @@ impl Room {
             return;
         };
 
-        self.colors.decrement_index(); // Reuse the color for the next member that joins
+        if let MemberColor::Distinct { index, .. } = member.color {
+            self.colors.return_index(index); // Reuse the color for the next member that joins
+        };
 
         // Broadcast leave event
         let _ = self.event_tx.send(RoomEvent::PlayerLeft {
@@ -132,7 +146,7 @@ impl Room {
                 .values()
                 .map(|m| {
                     let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
-                    let color = m.color.clone();
+                    let color = m.color.clone().into();
                     let distance =
                         score::haversine_distance(&guess_location, &self.location.coordinates);
                     let last_score = score::calculate_score(distance) as u32;
@@ -174,13 +188,13 @@ pub struct MemberAttributes {
     pub guess: Option<Coordinates>,
     /// The color assigned to the member for frontend display purposes.
     /// In hex format
-    pub color: String,
+    pub color: MemberColor,
     /// Whether the member is ready to move on to the next round.
     pub ready_next_round: bool,
 }
 
 impl MemberAttributes {
-    pub fn new(username: String, color: String) -> Self {
+    pub fn new(username: String, color: MemberColor) -> Self {
         Self {
             username,
             score: 0,

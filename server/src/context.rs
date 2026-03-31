@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use tokio::sync::RwLock;
 
 use crate::{
-    Handle, Room,
+    Handle, Room, colors,
     geo::{Location, engine::LocationEngine},
     handle,
     name_gen::NameGenerator,
@@ -89,7 +89,12 @@ impl Model {
             .get_mut(&handle.room)
             .ok_or(StatusCode::NOT_FOUND)?;
         if let Some(member) = room.members.get_mut(client_id) {
-            member.color = new_color;
+            if let colors::MemberColor::Distinct { index, .. } = member.color {
+                // If the member previously had a distinct color, return the index to the pool.
+                room.colors.return_index(index);
+            }
+
+            member.color = colors::MemberColor::Custom(new_color);
         }
 
         Ok(())
@@ -173,11 +178,11 @@ impl Model {
             Handle {
                 room: room_id.clone(),
                 username,
-                color: color.clone(),
+                color: color.clone().into(),
             },
         );
 
-        (room_id, color)
+        (room_id, color.into())
     }
 
     pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, StatusCode> {
