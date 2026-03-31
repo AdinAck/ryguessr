@@ -1,6 +1,7 @@
-use axum::http::HeaderName;
-use axum_extra::headers::Header;
+use axum::{extract::FromRequestParts, http::StatusCode};
+use axum_extra::extract::{CookieJar, cookie::Cookie};
 use derive_more::{AsRef, Deref};
+use uuid::Uuid;
 
 use crate::room;
 
@@ -19,29 +20,43 @@ pub struct Handle {
 pub struct Id(pub String);
 
 /// The header name used by the client to identify itself to the server.
-static ID_HEADER_NAME: HeaderName = HeaderName::from_static("client-id");
+pub const ID_COOKIE_NAME: &str = "client-id";
 
-impl Header for Id {
-    fn name() -> &'static HeaderName {
-        &ID_HEADER_NAME
+impl Id {
+    pub fn generate() -> Self {
+        Id(Uuid::new_v4().to_string())
     }
 
-    fn decode<'i, I>(values: &mut I) -> Result<Self, axum_extra::headers::Error>
-    where
-        Self: Sized,
-        I: Iterator<Item = &'i axum::http::HeaderValue>,
-    {
-        let value = values
-            .next()
-            .ok_or_else(axum_extra::headers::Error::invalid)?;
-        Ok(Id(value
-            .to_str()
-            .map_err(|_| axum_extra::headers::Error::invalid())?
-            .to_owned()))
+    pub fn to_cookie(&self) -> Cookie<'static> {
+        Cookie::build((ID_COOKIE_NAME, self.0.clone()))
+            .path("/")
+            .http_only(true)
+            .secure(true)
+            .build()
     }
+}
 
-    fn encode<E: Extend<axum::http::HeaderValue>>(&self, _: &mut E) {
-        // not needed, the server will never send this header to the client
-        unimplemented!()
+impl TryFrom<&str> for Id {
+    type Error = StatusCode;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(Id(value.to_owned()))
+    }
+}
+
+impl<S: Send + Sync> FromRequestParts<S> for Id {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let jar = CookieJar::from_request_parts(parts, state)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        jar.get(ID_COOKIE_NAME)
+            .map(|c| Id(c.value().to_string()))
+            .ok_or(StatusCode::UNAUTHORIZED)
     }
 }

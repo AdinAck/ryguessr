@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use axum::{Json, extract::State};
-use axum_extra::TypedHeader;
+use axum_extra::extract::CookieJar;
 
 use crate::{Context, handle, room};
 
@@ -17,12 +17,23 @@ pub struct InitResponse {
     color: String,
 }
 
-#[tracing::instrument(skip_all, fields(client_id = %*client_id))]
 pub async fn init_handler(
     State(context): State<Context>,
-    TypedHeader(client_id): TypedHeader<handle::Id>,
+    jar: CookieJar,
     Json(request): Json<InitRequest>,
-) -> Result<Json<InitResponse>, StatusCode> {
+) -> Result<(CookieJar, Json<InitResponse>), StatusCode> {
+    let (jar, client_id) = match jar.get(handle::ID_COOKIE_NAME) {
+        Some(c) => {
+            let client_id =
+                handle::Id::try_from(c.value()).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            (jar, client_id)
+        }
+        None => {
+            let client_id = handle::Id::generate();
+            (jar.add(client_id.to_cookie()), client_id)
+        }
+    };
+
     let location = context
         .engine
         .get_random_location()
@@ -39,9 +50,12 @@ pub async fn init_handler(
     let (room_id, color) =
         model.create_room(location, client_id.clone(), username.clone(), request.color);
 
-    Ok(Json(InitResponse {
-        room_id,
-        username,
-        color,
-    }))
+    Ok((
+        jar,
+        Json(InitResponse {
+            room_id,
+            username,
+            color,
+        }),
+    ))
 }

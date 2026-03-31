@@ -5,7 +5,6 @@ use axum::{
     extract::State,
     response::{Sse, sse},
 };
-use axum_extra::TypedHeader;
 use futures_util::{Stream, StreamExt};
 use tokio_stream::wrappers::BroadcastStream;
 
@@ -48,7 +47,7 @@ impl<S> PinnedDrop for EventStream<S> {
 #[tracing::instrument(skip_all, fields(client_id = %*client_id))]
 pub async fn sse_event_handler(
     State(context): State<Context>,
-    TypedHeader(client_id): TypedHeader<handle::Id>,
+    client_id: handle::Id,
 ) -> Result<Sse<impl Stream<Item = Result<sse::Event, axum::Error>>>, StatusCode> {
     let model = context.model.read().await;
     let handle = model

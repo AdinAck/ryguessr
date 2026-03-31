@@ -1,13 +1,12 @@
 use axum::http::StatusCode;
 use axum::{Json, extract::State};
-use axum_extra::TypedHeader;
 
 use crate::{Context, handle, room};
 
 #[tracing::instrument(skip_all, fields(client_id = %*client_id))]
 pub async fn join_handler(
     State(context): State<Context>,
-    TypedHeader(client_id): TypedHeader<handle::Id>,
+    client_id: handle::Id,
     Json(room_id): Json<room::Id>,
 ) -> Result<(), StatusCode> {
     let mut model = context.model.write().await;

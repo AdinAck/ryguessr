@@ -13,8 +13,6 @@ import { RoomSettingsActions } from "@/store/useSettingsStore"
 import { useUserSettings } from "@/store/useSettingsStore"
 
 export const Init = () => {
-  // cookies
-  const [cookies, setCookie, removeCookie] = useCookies(["USER_ID"]);
   const [responseCode, setResponseCode] = useState<number | undefined>();
 
   const hasInitialized = useRef(false);
@@ -31,13 +29,6 @@ export const Init = () => {
 
     const initializeRyguessr = async () => {
 
-      let currentUserID = cookies.USER_ID;
-
-      if (!currentUserID) {
-        const currentUserID = crypto.randomUUID();
-        setCookie("USER_ID", currentUserID, { path: "/" });
-      }
-
       const { savedUsername, savedIconColor } = useUserSettings.getState();
 
       const payload: Record<string, string> = {};
@@ -47,15 +38,16 @@ export const Init = () => {
       try {
         const response = await fetch("/api/init", {
           method: "POST",
+          credentials: 'same-origin',
           body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : JSON.stringify({}),
           headers: {
             "Content-Type": "application/json",
-            "Client-Id": currentUserID,
           },
         });
 
         if (response.ok) {
           const init_response: UserInit = await response.json();
+          console.log(init_response);
           RoomSettingsActions.updateRoomCode(init_response.room_id);
           playerActions.setSessionData(init_response.username, init_response.color);
           setResponseCode(response.status);
@@ -69,8 +61,8 @@ export const Init = () => {
     initializeRyguessr();
   }, [])
 
-  return isLoaded && cookies.USER_ID && responseCode == 200 ? (
-    <GameView userID={cookies.USER_ID} />
+  return isLoaded && responseCode == 200 ? (
+    <GameView />
   ) : (
     <div className="h-screen w-screen bg-black text-white flex items-center justify-center">
       Loading UwU...

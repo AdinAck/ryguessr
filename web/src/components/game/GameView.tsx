@@ -15,10 +15,7 @@ import Coordinates from "@/types/coordinate_type";
 // Settings icon
 import { Settings2 } from "lucide-react";
 
-// Zustand
-import { RoomSettingsActions } from "@/store/useSettingsStore";
-
-export const GameView = ({ userID }: { userID: string }) => {
+export const GameView = () => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined)
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
   const [roundData, setRoundData] = useState<RoundData | undefined>(undefined);
@@ -45,7 +42,6 @@ export const GameView = ({ userID }: { userID: string }) => {
           ...init,
           headers: {
             ...init.headers,
-            "Client-Id": userID,
           },
         })
     });
@@ -84,7 +80,6 @@ export const GameView = ({ userID }: { userID: string }) => {
       body: JSON.stringify(selectedLocation),
       headers: {
         'Content-Type': 'application/json',
-        'Client-Id': userID,
       },
     });
     if (!response.ok) {
@@ -98,7 +93,6 @@ export const GameView = ({ userID }: { userID: string }) => {
     const response = await fetch('/api/next', {
       method: 'POST',
       headers: {
-        "Client-Id": userID,
       },
     });
     if (!response.ok) {
