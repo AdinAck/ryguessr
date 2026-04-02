@@ -8,7 +8,7 @@ use axum::{
 use futures_util::{Stream, StreamExt};
 use tokio_stream::wrappers::BroadcastStream;
 
-use crate::{Context, RoomEvent, context::SharedModel, event::RoundStartData, handle};
+use crate::{Context, RoomEvent, context::SharedModel, event::RoundStartData, handle, room};
 
 #[pin_project::pin_project(PinnedDrop)]
 pub struct EventStream<S> {
@@ -17,6 +17,7 @@ pub struct EventStream<S> {
 
     model: SharedModel,
     client_id: handle::Id,
+    room_id: room::Id,
 }
 
 impl<S: Stream> Stream for EventStream<S> {
@@ -35,11 +36,27 @@ impl<S> PinnedDrop for EventStream<S> {
     fn drop(self: Pin<&mut Self>) {
         let state = self.model.clone();
         let client_id = self.client_id.clone();
+        let room_id = self.room_id.clone();
 
         tokio::spawn(async move {
             let mut state = state.write().await;
-            state.remove_client(&client_id);
-            tracing::info!(client_id = %*client_id, "client disconnected, removed from room");
+
+            if let Some(room) = state.rooms.get_mut(&room_id) {
+                room.decrement_connection();
+            }
+
+            // Only remove the client if they are still in the room this stream was for.
+            // This prevents a stale connection from an old room kicking a player out of their new room.
+            let is_in_room = state
+                .clients
+                .get(&client_id)
+                .map(|h| h.room == room_id)
+                .unwrap_or(false);
+
+            if is_in_room {
+                state.remove_client(&client_id);
+                tracing::info!(client_id = %*client_id, "client disconnected, removed from room");
+            }
         });
     }
 }
@@ -49,13 +66,15 @@ pub async fn sse_event_handler(
     State(context): State<Context>,
     client_id: handle::Id,
 ) -> Result<Sse<impl Stream<Item = Result<sse::Event, axum::Error>>>, StatusCode> {
-    let model = context.model.read().await;
+    let mut model = context.model.write().await;
     let handle = model
         .clients
         .get(&client_id)
         .ok_or(StatusCode::UNAUTHORIZED)?;
     let room_id = handle.room.clone();
-    let room = model.rooms.get(&room_id).ok_or(StatusCode::NOT_FOUND)?;
+    let room = model.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)?;
+
+    room.increment_connection();
 
     let round = room.round;
     let pano_id = room.location.pano_id.clone();
@@ -76,6 +95,7 @@ pub async fn sse_event_handler(
         stream: broadcast_stream,
         model: context.model.clone(),
         client_id: client_id.clone(),
+        room_id,
     };
 
     room.event_tx.send(initial_event).unwrap();

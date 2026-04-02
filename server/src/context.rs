@@ -30,14 +30,57 @@ pub struct Model {
 impl Context {
     /// Create an empty context.
     pub fn new(engine: LocationEngine) -> Self {
+        let model = Arc::new(RwLock::new(Model::default()));
+
+        // Spawn a background task to periodically clean up stale rooms.
+        let model_clone = model.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+            loop {
+                interval.tick().await;
+                let mut model = model_clone.write().await;
+                model.cleanup_stale_rooms();
+            }
+        });
+
         Self {
             engine: Arc::new(engine),
-            model: Arc::new(RwLock::new(Model::default())),
+            model,
         }
     }
 }
 
 impl Model {
+    pub fn cleanup_stale_rooms(&mut self) {
+        tracing::debug!(
+            "running stale room cleanup ({} rooms active)",
+            self.rooms.len()
+        );
+        let stale_room_ids: Vec<_> = self
+            .rooms
+            .iter()
+            .filter(|(_, room)| room.is_stale())
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        for id in stale_room_ids {
+            tracing::info!(room_id = %id.as_ref(), "cleaning up stale room");
+            if let Some(_room) = self.rooms.remove(&id) {
+                // Also remove all clients that were in this room
+                let client_ids: Vec<_> = self
+                    .clients
+                    .iter()
+                    .filter(|(_, handle)| handle.room == id)
+                    .map(|(id, _)| id.clone())
+                    .collect();
+                for client_id in client_ids {
+                    tracing::debug!(client_id = %*client_id, "removing client from stale room");
+                    self.clients.remove(&client_id);
+                }
+            }
+        }
+    }
+
     pub fn generate_unique_name(&self) -> String {
         let mut name = self.name_generator.generate();
         // Check for collisions across all existing clients.
@@ -154,6 +197,9 @@ impl Model {
         username: String,
         color_override: Option<String>,
     ) -> (room::Id, String) {
+        // Ensure the client is removed from any existing rooms before creating a new one.
+        self.remove_client(&client_id);
+
         // Generate room Id (ensure no collisions)
         let room_id = {
             let mut id = room::Id::random();
@@ -162,6 +208,8 @@ impl Model {
             }
             id
         };
+
+        tracing::info!(room_id = %room_id.as_ref(), username = %username, "created new room");
 
         // Create room + handle
         let room = Room::new(

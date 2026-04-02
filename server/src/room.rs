@@ -31,6 +31,10 @@ pub struct Room {
     config: Config,
     /// The event sender handle for the room, used to broadcast events to all members of the room.
     pub event_tx: broadcast::Sender<RoomEvent>,
+    /// The number of active SSE connections to this room.
+    pub active_connections: usize,
+    /// The last time there was activity in this room (connection or creation).
+    pub last_activity: std::time::Instant,
     // TODO: location history for the round
 }
 
@@ -55,7 +59,24 @@ impl Room {
             colors,
             config: Config {},
             event_tx,
+            active_connections: 0,
+            last_activity: std::time::Instant::now(),
         }
+    }
+
+    pub fn increment_connection(&mut self) {
+        self.active_connections += 1;
+        self.last_activity = std::time::Instant::now();
+    }
+
+    pub fn decrement_connection(&mut self) {
+        self.active_connections = self.active_connections.saturating_sub(1);
+        self.last_activity = std::time::Instant::now();
+    }
+
+    pub fn is_stale(&self) -> bool {
+        self.active_connections == 0
+            && self.last_activity.elapsed() > std::time::Duration::from_secs(60)
     }
 
     /// Add a member to the room. If `color` is not provided, a new distinct color is generated.
@@ -65,6 +86,7 @@ impl Room {
         username: String,
         color_override: Option<String>,
     ) {
+        self.last_activity = std::time::Instant::now();
         let occupied: Vec<MemberColor> = self.members.values().map(|m| m.color.clone()).collect();
         let color = match color_override {
             Some(c) => MemberColor::Custom(c),
@@ -83,6 +105,7 @@ impl Room {
     }
 
     pub fn remove_member(&mut self, client_id: &handle::Id) {
+        self.last_activity = std::time::Instant::now();
         let Some(member) = self.members.remove(client_id) else {
             return;
         };
@@ -100,6 +123,7 @@ impl Room {
     /// Handle a ready submission from a member of the room.
     /// Returns true if everyone is ready.
     pub fn submit_ready(&mut self, client_id: &handle::Id) -> bool {
+        self.last_activity = std::time::Instant::now();
         let Some(member) = self.members.get_mut(client_id) else {
             return false;
         };
@@ -111,6 +135,7 @@ impl Room {
 
     /// Transition to next round
     pub fn start_next_round(&mut self, new_location: Location) {
+        self.last_activity = std::time::Instant::now();
         let pano_id = new_location.pano_id.clone();
         self.location = new_location;
 
@@ -129,6 +154,7 @@ impl Room {
     /// Handle a guess from a member of the room. This will update the member's score and broadcast
     /// if everyone has submitted a guess for the current round.
     pub fn submit_guess(&mut self, client_id: &handle::Id, guess: Coordinates) {
+        self.last_activity = std::time::Instant::now();
         let Some(member) = self.members.get_mut(client_id) else {
             return;
         };
