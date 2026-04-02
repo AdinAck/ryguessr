@@ -1,9 +1,11 @@
 use ryguessr::colors::DistinctColors;
 
 fn main() {
-    let colors = DistinctColors::new();
+    let mut colors = DistinctColors::new();
 
-    for hex in colors.take(20) {
+    for _ in 0..20 {
+        let member_color = colors.next_filtered(&[]);
+        let hex: String = member_color.into();
         // Parse the hex color to get RGB values for terminal display
         let r = u8::from_str_radix(&hex[1..3], 16).unwrap();
         let g = u8::from_str_radix(&hex[3..5], 16).unwrap();
