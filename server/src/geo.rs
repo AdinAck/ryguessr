@@ -7,6 +7,7 @@ pub mod streetview;
 
 pub type PanoId = String;
 
+#[derive(Clone)]
 pub struct Location {
     pub coordinates: Coordinates,
     pub pano_id: PanoId,
