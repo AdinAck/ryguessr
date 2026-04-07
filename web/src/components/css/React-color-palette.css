@@ -28,7 +28,7 @@
   user-select: none;
   touch-action: none;
 }
-.rcp-interactive[aria-disabled=true] {
+.rcp-interactive[aria-disabled="true"] {
   cursor: unset;
   pointer-events: none;
 }
@@ -37,14 +37,8 @@
   width: 100%;
   position: relative;
   background-image:
-    linear-gradient(
-      to bottom,
-      transparent,
-      black),
-    linear-gradient(
-      to right,
-      white,
-      transparent);
+    linear-gradient(to bottom, transparent, black),
+    linear-gradient(to right, white, transparent);
   border-radius: 10px 10px 0 0;
 }
 .rcp-saturation-cursor {
@@ -53,7 +47,7 @@
   height: 20px;
   border: 2px solid white;
   border-radius: 100%;
-  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / 0.15);
   transform: translate(-10px, -10px);
 }
 .rcp-hue {
@@ -61,16 +55,16 @@
   position: relative;
   width: 100%;
   height: 12px;
-  background-image:
-    linear-gradient(
-      to right,
-      rgb(255, 0, 0),
-      rgb(255, 255, 0),
-      rgb(0, 255, 0),
-      rgb(0, 255, 255),
-      rgb(0, 0, 255),
-      rgb(255, 0, 255),
-      rgb(255, 0, 0));
+  background-image: linear-gradient(
+    to right,
+    rgb(255, 0, 0),
+    rgb(255, 255, 0),
+    rgb(0, 255, 0),
+    rgb(0, 255, 255),
+    rgb(0, 0, 255),
+    rgb(255, 0, 255),
+    rgb(255, 0, 0)
+  );
   border-radius: 10px;
 }
 .rcp-hue-cursor {
@@ -79,7 +73,7 @@
   height: 20px;
   border: 2px solid white;
   border-radius: 100%;
-  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / 0.15);
   transform: translate(-10px, -4px);
 }
 .rcp-alpha {
@@ -95,7 +89,7 @@
   height: 20px;
   border: 2px solid white;
   border-radius: 100%;
-  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / 0.15);
   transform: translate(-10px, -4px);
 }
 .rcp-fields {

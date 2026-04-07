@@ -1,9 +1,9 @@
-"use client"
+"use client";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "../ui/button";
 import { Field } from "../ui/field";
 import { Input } from "../ui/input";
-import { MapPin } from 'lucide-react';
+import { MapPin } from "lucide-react";
 import { ColorPicker, useColor } from "react-color-palette";
 import "@/components/ui/react-color-palette.css";
 
@@ -11,28 +11,39 @@ import "@/components/ui/react-color-palette.css";
 import { useGameSession } from "@/store/useSettingsStore";
 import { useShallow } from "zustand/shallow";
 
-
-
-const UsernameSettings = ({handleColorRequest, handleUsernameRequest}: {handleColorRequest: (color: string) => void, handleUsernameRequest: (username: string) => void}) => {
-  const { activeUsername, activeIconColor } = useGameSession(useShallow((state) => ({
-    activeUsername: state.activeUsername,
-    activeIconColor: state.activeIconColor
-  })));
+const UsernameSettings = ({
+  handleColorRequest,
+  handleUsernameRequest,
+}: {
+  handleColorRequest: (color: string) => void;
+  handleUsernameRequest: (username: string) => void;
+}) => {
+  const { activeUsername, activeIconColor } = useGameSession(
+    useShallow((state) => ({
+      activeUsername: state.activeUsername,
+      activeIconColor: state.activeIconColor,
+    })),
+  );
 
   const handleUsernameSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const username = formData.get("username") as string;
-    handleUsernameRequest(username)
+    handleUsernameRequest(username);
   };
 
-  const [color, setColor] = useColor(activeIconColor ? activeIconColor : "#FFFFFF");
+  const [color, setColor] = useColor(
+    activeIconColor ? activeIconColor : "#FFFFFF",
+  );
 
   return (
     <>
       <p className="text-xl font-semibold">User</p>
       <Separator />
-      <form onSubmit={(e) => handleUsernameSubmit(e)} className="flex flex-col w-full gap-3">
+      <form
+        onSubmit={(e) => handleUsernameSubmit(e)}
+        className="flex flex-col w-full gap-3"
+      >
         <Field className="flex flex-row">
           <Input
             id="input-field-roomcode"
@@ -41,13 +52,12 @@ const UsernameSettings = ({handleColorRequest, handleUsernameRequest}: {handleCo
             type="text"
             className="shrink md:text-3xl font-semibold h-auto"
           />
-
-
         </Field>
         <Field orientation="horizontal">
-          <Button type="submit" className={`w-full`}>Save Username</Button>
+          <Button type="submit" className={`w-full`}>
+            Save Username
+          </Button>
         </Field>
-
       </form>
       <Separator />
       <div className="flex flex-col justify-start items-center w-full h-full gap-3">
@@ -57,9 +67,11 @@ const UsernameSettings = ({handleColorRequest, handleUsernameRequest}: {handleCo
           className="w-full min-h-32 max-h-44 md:max-h-64 md:min-h-44 lg:max-h-96 lg-min-h-64"
         />
         <div className="w-full">
-
           <ColorPicker
-            color={color} onChange={setColor} hideAlpha={true} onChangeComplete={(color) => handleColorRequest(color.hex)}
+            color={color}
+            onChange={setColor}
+            hideAlpha={true}
+            onChangeComplete={(color) => handleColorRequest(color.hex)}
           />
         </div>
       </div>

@@ -1,13 +1,13 @@
-"use client"
-import { useState } from "react"
-import { KeyRound, MapPinPen, AudioLines, UserRoundPen } from "lucide-react"
-import { Button } from "../ui/button"
-import RoomSettings from "../settings_content/room-settings"
-import StreetviewSettings from "../settings_content/streetview-settings"
-import UsernameSettings from "../settings_content/username-settings"
+"use client";
+import { useState } from "react";
+import { KeyRound, MapPinPen, AudioLines, UserRoundPen } from "lucide-react";
+import { Button } from "../ui/button";
+import RoomSettings from "../settings_content/room-settings";
+import StreetviewSettings from "../settings_content/streetview-settings";
+import UsernameSettings from "../settings_content/username-settings";
 
 // Zustand
-import { playerActions } from "@/store/useSettingsStore"
+import { playerActions } from "@/store/useSettingsStore";
 
 enum SettingsToggle {
   Room,
@@ -18,10 +18,10 @@ enum SettingsToggle {
 
 const Settings = () => {
   const [currentSettingToggle, setCurrentSettingToggle] =
-    useState<SettingsToggle>(SettingsToggle.Room)
+    useState<SettingsToggle>(SettingsToggle.Room);
 
   const handleColorRequest = (color: string) => {
-    playerActions.saveCustomColor(color)
+    playerActions.saveCustomColor(color);
     try {
       const response = fetch("/api/color", {
         method: "POST",
@@ -29,16 +29,16 @@ const Settings = () => {
         headers: {
           "Content-Type": "application/json",
         },
-      })
+      });
     } catch (error) {
-      console.log(error)
+      console.log(error);
     } finally {
-      console.log("Color Saved")
+      console.log("Color Saved");
     }
-  }
+  };
 
   const handleUsernameRequest = (username: string) => {
-    playerActions.saveCustomUsername(username)
+    playerActions.saveCustomUsername(username);
     try {
       const response = fetch("api/username", {
         method: "POST",
@@ -46,13 +46,13 @@ const Settings = () => {
         headers: {
           "Content-Type": "application/json",
         },
-      })
+      });
     } catch (error) {
-      console.log(error)
+      console.log(error);
     } finally {
-      console.log("Username Saved!")
+      console.log("Username Saved!");
     }
-  }
+  };
 
   return (
     <div className="z-[99] w-md md:w-xl lg:w-2xl h-[50dvh] min-h-[400px] max-h-[800px] flex flex-row border-2 rounded-lg bg-background ">
@@ -92,7 +92,7 @@ const Settings = () => {
               : "ghost"
           }
           onClick={() => {
-            setCurrentSettingToggle(SettingsToggle.Audio)
+            setCurrentSettingToggle(SettingsToggle.Audio);
           }}
           className="justify-start items-center"
         >
@@ -107,7 +107,7 @@ const Settings = () => {
               : "ghost"
           }
           onClick={() => {
-            setCurrentSettingToggle(SettingsToggle.Username)
+            setCurrentSettingToggle(SettingsToggle.Username);
           }}
           className="justify-start items-center"
         >
@@ -125,11 +125,14 @@ const Settings = () => {
           <StreetviewSettings />
         )}
         {currentSettingToggle === SettingsToggle.Username && (
-          <UsernameSettings handleColorRequest={handleColorRequest} handleUsernameRequest={handleUsernameRequest}/>
+          <UsernameSettings
+            handleColorRequest={handleColorRequest}
+            handleUsernameRequest={handleUsernameRequest}
+          />
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Settings
+export default Settings;

@@ -1,22 +1,22 @@
-"use client"
+"use client";
 import { Separator } from "../ui/separator";
 import { Field } from "../ui/field";
 import { Button } from "../ui/button";
 import { useState, memo } from "react";
-import { Input } from "@/components/ui/input"
+import { Input } from "@/components/ui/input";
 
 // Zustand useRoomSettings
 import { useRoomSettings } from "@/store/useSettingsStore";
 
 const RoomSettings = () => {
-  const [roomCodeInput, setRoomCodeInput] = useState<string | undefined>(undefined);
+  const [roomCodeInput, setRoomCodeInput] = useState<string | undefined>(
+    undefined,
+  );
 
   const roomCode = useRoomSettings((state) => state.roomCode);
 
-
   return (
     <>
-
       <p className="text-xl font-semibold">Room</p>
       <Separator />
 
@@ -32,16 +32,17 @@ const RoomSettings = () => {
             onChange={(e) => setRoomCodeInput(e.target.value)}
             className="shrink"
           />
-
-
         </Field>
         <Field orientation="horizontal">
-          <Button type="submit" className={`w-full`}>Join Room</Button>
+          <Button type="submit" className={`w-full`}>
+            Join Room
+          </Button>
         </Field>
         <Field orientation="horizontal">
-          <Button type="submit" className="w-full">New Room</Button>
+          <Button type="submit" className="w-full">
+            New Room
+          </Button>
         </Field>
-
       </form>
       {/* <Field orientation="horizontal" className="w-fit"> */}
       {/*   <FieldLabel htmlFor="2fa">Multi-factor authentication</FieldLabel> */}
@@ -49,7 +50,6 @@ const RoomSettings = () => {
       {/* </Field> */}
     </>
   );
-
 };
 
 export default RoomSettings;

@@ -14,7 +14,7 @@ const StreetviewSettings = () => {
       streetNames: state.streetNamesEnabled,
       zooming: state.zoomGesturesEnabled,
       navigation: state.userNavigationEnabled,
-    }))
+    })),
   );
 
   return (
@@ -23,26 +23,42 @@ const StreetviewSettings = () => {
       <Separator />
       <div className="flex items-center justify-between space-x-2">
         <Label htmlFor="panningGesturesEnabled">Panning Gestures</Label>
-        <Switch checked={panning} onCheckedChange={StreetviewStateActions.setPanningGesturesEnabled} id="panningGesturesEnabled" />
+        <Switch
+          checked={panning}
+          onCheckedChange={StreetviewStateActions.setPanningGesturesEnabled}
+          id="panningGesturesEnabled"
+        />
       </div>
       <Separator />
 
       <div className="flex items-center justify-between space-x-2">
         <Label htmlFor="streetNamesEnabled">Street Names</Label>
-        <Switch checked={streetNames} onCheckedChange={StreetviewStateActions.setStreetNamesEnabled} id="streetNamesEnabled" />
+        <Switch
+          checked={streetNames}
+          onCheckedChange={StreetviewStateActions.setStreetNamesEnabled}
+          id="streetNamesEnabled"
+        />
       </div>
       <Separator />
       <div className="flex items-center justify-between space-x-2">
         <Label htmlFor="zoomGesturesEnabled">Zoom Gestures</Label>
-        <Switch checked={zooming} onCheckedChange={StreetviewStateActions.setZoomGesturesEnabled} id="zoomGesturesEnabled" />
+        <Switch
+          checked={zooming}
+          onCheckedChange={StreetviewStateActions.setZoomGesturesEnabled}
+          id="zoomGesturesEnabled"
+        />
       </div>
       <Separator />
       <div className="flex items-center justify-between space-x-2">
         <Label htmlFor="userNavigationEnabled">User Navigation</Label>
-        <Switch checked={navigation} onCheckedChange={StreetviewStateActions.setUserNavigationEnabled} id="userNavigationEnabled" />
+        <Switch
+          checked={navigation}
+          onCheckedChange={StreetviewStateActions.setUserNavigationEnabled}
+          id="userNavigationEnabled"
+        />
       </div>
     </>
   );
-}
+};
 
 export default StreetviewSettings;

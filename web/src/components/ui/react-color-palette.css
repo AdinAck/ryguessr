@@ -1,6 +1,6 @@
 /* src/css/rcp.css */
 .rcp-root {
-  --rcp-background-color: transparent; 
+  --rcp-background-color: transparent;
   --rcp-field-input-color: var(--foreground);
   --rcp-field-input-border-color: var(--input);
   --rcp-field-label-color: var(--muted-foreground);
@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   background-color: var(--rcp-background-color);
-  border-radius: var(--radius); 
+  border-radius: var(--radius);
 }
 .rcp-body {
   display: flex;
@@ -28,7 +28,7 @@
   user-select: none;
   touch-action: none;
 }
-.rcp-interactive[aria-disabled=true] {
+.rcp-interactive[aria-disabled="true"] {
   cursor: unset;
   pointer-events: none;
 }
@@ -37,14 +37,8 @@
   width: 100%;
   position: relative;
   background-image:
-    linear-gradient(
-      to bottom,
-      transparent,
-      black),
-    linear-gradient(
-      to right,
-      white,
-      transparent);
+    linear-gradient(to bottom, transparent, black),
+    linear-gradient(to right, white, transparent);
   border-radius: 10px 10px 0 0;
 }
 .rcp-saturation-cursor {
@@ -53,7 +47,7 @@
   height: 20px;
   border: 2px solid white;
   border-radius: 100%;
-  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / 0.15);
   transform: translate(-10px, -10px);
 }
 .rcp-hue {
@@ -61,16 +55,16 @@
   position: relative;
   width: 100%;
   height: 12px;
-  background-image:
-    linear-gradient(
-      to right,
-      rgb(255, 0, 0),
-      rgb(255, 255, 0),
-      rgb(0, 255, 0),
-      rgb(0, 255, 255),
-      rgb(0, 0, 255),
-      rgb(255, 0, 255),
-      rgb(255, 0, 0));
+  background-image: linear-gradient(
+    to right,
+    rgb(255, 0, 0),
+    rgb(255, 255, 0),
+    rgb(0, 255, 0),
+    rgb(0, 255, 255),
+    rgb(0, 0, 255),
+    rgb(255, 0, 255),
+    rgb(255, 0, 0)
+  );
   border-radius: 10px;
 }
 .rcp-hue-cursor {
@@ -79,7 +73,7 @@
   height: 20px;
   border: 2px solid white;
   border-radius: 100%;
-  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / 0.15);
   transform: translate(-10px, -4px);
 }
 .rcp-alpha {
@@ -95,7 +89,7 @@
   height: 20px;
   border: 2px solid white;
   border-radius: 100%;
-  box-shadow: 0 0 15px 0 rgb(0 0 0 / .15);
+  box-shadow: 0 0 15px 0 rgb(0 0 0 / 0.15);
   transform: translate(-10px, -4px);
 }
 .rcp-fields {
@@ -115,18 +109,20 @@
 }
 .rcp-field-input {
   width: 100%;
-  height: 2.25rem; 
+  height: 2.25rem;
   padding: 0.25rem 0.75rem;
-  border-radius: calc(var(--radius) - 2px); 
+  border-radius: calc(var(--radius) - 2px);
   font-family: inherit;
-  font-size: 0.875rem; 
+  font-size: 0.875rem;
   text-align: center;
   color: var(--rcp-field-input-color);
   outline: none;
   background-color: transparent;
   border: 1px solid var(--rcp-field-input-border-color);
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); 
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .rcp-field-input:read-only {
   opacity: 0.5;
@@ -138,8 +134,8 @@
 }
 
 .rcp-field-label {
-  font-size: 0.75rem; 
-  font-weight: 500; 
+  font-size: 0.75rem;
+  font-weight: 500;
   text-align: center;
   margin-top: 0.25rem;
   color: var(--rcp-field-label-color);
