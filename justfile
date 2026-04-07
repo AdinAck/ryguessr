@@ -19,5 +19,7 @@ ci:
 
     just web/build
     just web/lint
+    just web/typecheck
+    just web/fmt-check
 
     @echo "Done!"
