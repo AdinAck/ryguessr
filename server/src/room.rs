@@ -1,16 +1,21 @@
 use std::collections::HashMap;
 
+use colors::{Srgb8, srgb};
 use derive_more::{AsRef, Deref};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
 use crate::{
     Coordinates, RoomEvent,
-    colors::{DistinctColors, MemberColor},
+    colors::{DistinctColors, PlayerColor},
     event::{JoinData, PlayerResults, RoundEndData, RoundStartData},
     geo::Location,
     handle, score,
 };
+
+/// Used when [`DistinctColors`] is saturated and can't produce a fresh
+/// distinct color.
+const FALLBACK_COLOR: Srgb8 = srgb!("#808080");
 
 /// A room exists in a particular [`Location`], housing multiple members who are all
 /// at the room's location. A room's [`Config`] specifies the rules of how the room
@@ -43,13 +48,19 @@ impl Room {
         location: Location,
         client_id: handle::Id,
         username: String,
-        color_override: Option<String>,
+        color_override: Option<Srgb8>,
     ) -> Self {
         let (event_tx, _) = broadcast::channel(16);
         let mut colors = DistinctColors::new();
         let color = match color_override {
-            Some(c) => MemberColor::Custom(c),
-            None => colors.next_filtered(&[]),
+            Some(srgb) => {
+                colors.push_occupied(srgb);
+                PlayerColor::custom(srgb)
+            }
+            None => colors.next().unwrap_or_else(|| {
+                tracing::warn!("DistinctColors exhausted; using fallback");
+                PlayerColor::distinct(FALLBACK_COLOR)
+            }),
         };
         let members = HashMap::from([(client_id, MemberAttributes::new(username, color))]);
         Self {
@@ -84,23 +95,28 @@ impl Room {
         &mut self,
         client_id: &handle::Id,
         username: String,
-        color_override: Option<String>,
+        color_override: Option<Srgb8>,
     ) {
         self.last_activity = std::time::Instant::now();
-        let occupied: Vec<MemberColor> = self.members.values().map(|m| m.color.clone()).collect();
         let color = match color_override {
-            Some(c) => MemberColor::Custom(c),
-            None => self.colors.next_filtered(&occupied),
+            Some(srgb) => {
+                self.colors.push_occupied(srgb);
+                PlayerColor::custom(srgb)
+            }
+            None => self.colors.next().unwrap_or_else(|| {
+                tracing::warn!("DistinctColors exhausted; using fallback");
+                PlayerColor::distinct(FALLBACK_COLOR)
+            }),
         };
         self.members.insert(
             client_id.clone(),
-            MemberAttributes::new(username.clone(), color.clone()),
+            MemberAttributes::new(username.clone(), color),
         );
 
         // Broadcast join event
         let _ = self.event_tx.send(RoomEvent::PlayerJoined(JoinData {
             username,
-            color: color.into(),
+            color: color.srgb,
         }));
     }
 
@@ -109,6 +125,7 @@ impl Room {
         let Some(member) = self.members.remove(client_id) else {
             return;
         };
+        self.colors.remove_occupied(member.color.srgb);
 
         // Broadcast leave event
         let _ = self.event_tx.send(RoomEvent::PlayerLeft {
@@ -169,7 +186,7 @@ impl Room {
                 .values()
                 .map(|m| {
                     let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
-                    let color = m.color.clone().into();
+                    let color = m.color.srgb;
                     let distance =
                         score::haversine_distance(&guess_location, &self.location.coordinates);
                     let last_score = score::calculate_score(distance) as u32;
@@ -210,14 +227,13 @@ pub struct MemberAttributes {
     /// The member's most recent guess for the current round, if they have submitted one.
     pub guess: Option<Coordinates>,
     /// The color assigned to the member for frontend display purposes.
-    /// In hex format
-    pub color: MemberColor,
+    pub color: PlayerColor,
     /// Whether the member is ready to move on to the next round.
     pub ready_next_round: bool,
 }
 
 impl MemberAttributes {
-    pub fn new(username: String, color: MemberColor) -> Self {
+    pub fn new(username: String, color: PlayerColor) -> Self {
         Self {
             username,
             score: 0,

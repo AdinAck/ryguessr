@@ -1,5 +1,6 @@
 use axum::{extract::FromRequestParts, http::StatusCode};
 use axum_extra::extract::{CookieJar, cookie::Cookie};
+use colors::Srgb8;
 use derive_more::{AsRef, Deref};
 use uuid::Uuid;
 
@@ -11,8 +12,8 @@ pub struct Handle {
     pub room: room::Id,
     /// The chosen username of the associated client.
     pub username: String,
-    /// The hex color assigned to the client, persisted across rooms.
-    pub color: String,
+    /// The color assigned to the client, persisted across rooms.
+    pub color: Srgb8,
 }
 
 /// The unique identifier for a [`Handle`].

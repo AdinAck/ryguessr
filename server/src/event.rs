@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{Coordinates, geo::PanoId};
 use axum::response::sse;
+use colors::Srgb8;
 use serde::Serialize;
 use strum::AsRefStr;
 
@@ -43,11 +44,11 @@ pub struct PlayerResults {
     pub cum_score: u32,
     pub distance: f64,
     pub guess_location: Coordinates,
-    pub color: String,
+    pub color: Srgb8,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct JoinData {
     pub username: String,
-    pub color: String,
+    pub color: Srgb8,
 }

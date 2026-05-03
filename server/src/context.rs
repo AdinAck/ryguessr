@@ -1,10 +1,12 @@
 use std::{collections::HashMap, sync::Arc};
 
 use axum::http::StatusCode;
+use colors::Srgb8;
 use tokio::sync::RwLock;
 
 use crate::{
-    Handle, Room, colors,
+    Handle, Room,
+    colors::PlayerColor,
     geo::{Location, engine::LocationEngine},
     handle,
     name_gen::NameGenerator,
@@ -118,13 +120,13 @@ impl Model {
     pub fn set_color(
         &mut self,
         client_id: &handle::Id,
-        new_color: String,
+        new_color: Srgb8,
     ) -> Result<(), StatusCode> {
         let handle = self
             .clients
             .get_mut(client_id)
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.color = new_color.clone();
+        handle.color = new_color;
 
         // Update the member's color in their current room
         let room = self
@@ -132,7 +134,11 @@ impl Model {
             .get_mut(&handle.room)
             .ok_or(StatusCode::NOT_FOUND)?;
         if let Some(member) = room.members.get_mut(client_id) {
-            member.color = colors::MemberColor::Custom(new_color);
+            // Free the prior color so a future distinct pick can reuse it,
+            // then register the new custom pick so picks stay clear of it.
+            room.colors.remove_occupied(member.color.srgb);
+            room.colors.push_occupied(new_color);
+            member.color = PlayerColor::custom(new_color);
         }
 
         Ok(())
@@ -158,7 +164,7 @@ impl Model {
         }
 
         let username = handle.username.clone();
-        let color = handle.color.clone();
+        let color = handle.color;
         let old_room_id = handle.room.clone();
 
         // Remove client from old room
@@ -190,8 +196,8 @@ impl Model {
         location: Location,
         client_id: handle::Id,
         username: String,
-        color_override: Option<String>,
-    ) -> (room::Id, String) {
+        color_override: Option<Srgb8>,
+    ) -> (room::Id, Srgb8) {
         // Ensure the client is removed from any existing rooms before creating a new one.
         self.remove_client(&client_id);
 
@@ -213,7 +219,7 @@ impl Model {
             username.clone(),
             color_override,
         );
-        let color = room.members.get(&client_id).unwrap().color.clone();
+        let color = room.members.get(&client_id).unwrap().color.srgb;
 
         self.rooms.insert(room_id.clone(), room);
         self.clients.insert(
@@ -221,11 +227,11 @@ impl Model {
             Handle {
                 room: room_id.clone(),
                 username,
-                color: color.clone().into(),
+                color,
             },
         );
 
-        (room_id, color.into())
+        (room_id, color)
     }
 
     pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, StatusCode> {

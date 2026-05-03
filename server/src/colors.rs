@@ -1,173 +1,60 @@
-use anyhow::{Result, anyhow, bail};
+use colors::{A_RANGE, B_RANGE, L_RANGE, LinearRgb, Oklab, Srgb8, srgb};
 
 /// R2 quasirandom sequence constants (1/φ₃, 1/φ₃², 1/φ₃³). Walking these in 3D
 /// produces a low-discrepancy sequence, so successive indices map to evenly
 /// spread points in OKLAB space.
 const ALPHA: [f64; 3] = [0.8191725134, 0.6710436067, 0.5497004779];
 
-/// OKLAB ranges that stay mostly within the sRGB gamut.
-const L_RANGE: (f64, f64) = (0.35, 0.85);
-const A_RANGE: (f64, f64) = (-0.15, 0.15);
-const B_RANGE: (f64, f64) = (-0.15, 0.15);
-
-/// Squared Delta-E threshold below which two colors are considered too similar.
+/// Squared Delta-E threshold below which two player colors are considered too similar.
 /// 0.04 in OKLAB is a small but visible perceptual difference.
 const DISTINCT_THRESHOLD_SQ: f64 = 0.04 * 0.04;
 
+/// Larger threshold used against map background colors. Player markers cover a
+/// small area, so they need more separation from large background regions to
+/// stay visible.
+const MAP_DISTINCT_THRESHOLD_SQ: f64 = 0.12 * 0.12;
+
+/// Maximum R2 indices [`DistinctColors::next`] probes before giving up. Sized
+/// well above the realistic rejection rate; a return of `None` means the
+/// reserved region is genuinely saturated.
+const MAX_DISTINCT_TRIES: usize = 1024;
+
+/// Colors sampled from the Google Maps base layer (terrain, parks, water, road
+/// fill, etc.). Generated player colors must stay perceptually distinct from
+/// these so markers don't blend into the map.
+const MAP_RESERVED_COLORS: &[Srgb8] = &[
+    srgb!("#f6f5f5"),
+    srgb!("#f5f0e5"),
+    srgb!("#bbf0d0"),
+    srgb!("#cdf1dc"),
+    srgb!("#ccd0cb"),
+    srgb!("#70d3e7"),
+];
+
+/// A color assigned to a member of a room.
 #[derive(Debug, Clone, Copy)]
-pub struct Oklab {
-    pub l: f64,
-    pub a: f64,
-    pub b: f64,
+pub struct PlayerColor {
+    pub srgb: Srgb8,
+    /// `true` if the client picked it explicitly, `false` if the server
+    /// generated it via [`DistinctColors`]. Custom colors are preserved across
+    /// regenerations.
+    pub custom: bool,
 }
 
-impl Oklab {
-    fn dist_sq(self, other: Oklab) -> f64 {
-        (self.l - other.l).powi(2) + (self.a - other.a).powi(2) + (self.b - other.b).powi(2)
+impl PlayerColor {
+    pub fn custom(srgb: Srgb8) -> Self {
+        Self { srgb, custom: true }
     }
-}
 
-#[derive(Debug, Clone, Copy)]
-struct LinearRgb {
-    r: f64,
-    g: f64,
-    b: f64,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Srgb8 {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl TryFrom<&str> for Srgb8 {
-    type Error = anyhow::Error;
-
-    fn try_from(s: &str) -> Result<Self> {
-        let hex = s.strip_prefix('#').unwrap_or(s);
-        if hex.len() != 6 || !hex.is_ascii() {
-            bail!("invalid hex color {s:?}, expected the form #RRGGBB");
-        }
-        let parse = |i: usize| {
-            u8::from_str_radix(&hex[i..i + 2], 16)
-                .map_err(|e| anyhow!("invalid hex color {s:?}: {e}"))
-        };
-        Ok(Srgb8 {
-            r: parse(0)?,
-            g: parse(2)?,
-            b: parse(4)?,
-        })
-    }
-}
-
-impl From<Srgb8> for LinearRgb {
-    fn from(Srgb8 { r, g, b }: Srgb8) -> Self {
-        let decode = |c: u8| {
-            let c = c as f64 / 255.0;
-            if c <= 0.04045 {
-                c / 12.92
-            } else {
-                ((c + 0.055) / 1.055).powf(2.4)
-            }
-        };
-        LinearRgb {
-            r: decode(r),
-            g: decode(g),
-            b: decode(b),
+    pub fn distinct(srgb: Srgb8) -> Self {
+        Self {
+            srgb,
+            custom: false,
         }
     }
 }
 
-impl From<LinearRgb> for Srgb8 {
-    fn from(LinearRgb { r, g, b }: LinearRgb) -> Self {
-        let encode = |c: f64| {
-            let c = c.clamp(0.0, 1.0);
-            let gamma = if c <= 0.0031308 {
-                12.92 * c
-            } else {
-                1.055 * c.powf(1.0 / 2.4) - 0.055
-            };
-            (gamma * 255.0 + 0.5) as u8
-        };
-        Srgb8 {
-            r: encode(r),
-            g: encode(g),
-            b: encode(b),
-        }
-    }
-}
-
-impl From<LinearRgb> for Oklab {
-    fn from(LinearRgb { r, g, b }: LinearRgb) -> Self {
-        // linear sRGB -> LMS
-        let l_ = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
-        let m_ = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
-        let s_ = 0.0883024619 * r + 0.2817188976 * g + 0.6299787005 * b;
-
-        let l = l_.cbrt();
-        let m = m_.cbrt();
-        let s = s_.cbrt();
-
-        Oklab {
-            l: 0.2104542553 * l + 0.7936177850 * m - 0.0040720403 * s,
-            a: 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
-            b: 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
-        }
-    }
-}
-
-impl From<Oklab> for LinearRgb {
-    fn from(Oklab { l, a, b }: Oklab) -> Self {
-        // OKLAB -> LMS
-        let l_ = l + 0.3963377774 * a + 0.2158037573 * b;
-        let m_ = l - 0.1055613458 * a - 0.0638541728 * b;
-        let s_ = l - 0.0894841775 * a - 1.2914855480 * b;
-
-        let l = l_.powi(3);
-        let m = m_.powi(3);
-        let s = s_.powi(3);
-
-        LinearRgb {
-            r: 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-            g: -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-            b: -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum MemberColor {
-    /// A color chosen by the client.
-    Custom(String),
-    /// A color generated by the server to be distinct from other members.
-    Distinct(String),
-}
-
-impl MemberColor {
-    /// The `#RRGGBB` representation, regardless of the variant.
-    pub fn hex(&self) -> &str {
-        match self {
-            Self::Custom(hex) | Self::Distinct(hex) => hex,
-        }
-    }
-
-    pub fn to_oklab(&self) -> Result<Oklab> {
-        Srgb8::try_from(self.hex())
-            .map(LinearRgb::from)
-            .map(Oklab::from)
-    }
-}
-
-impl From<MemberColor> for String {
-    fn from(color: MemberColor) -> Self {
-        match color {
-            MemberColor::Custom(hex) | MemberColor::Distinct(hex) => hex,
-        }
-    }
-}
-
-/// Generates hex colors that are perceptually distinct from one another.
+/// Generates colors that are perceptually distinct from one another.
 ///
 /// Each instance walks an R2 quasirandom sequence in OKLAB space starting from
 /// a random seed, so two `DistinctColors` will produce different palettes even
@@ -175,6 +62,7 @@ impl From<MemberColor> for String {
 pub struct DistinctColors {
     seed: [f64; 3],
     next_index: usize,
+    occupied: Vec<Srgb8>,
 }
 
 impl DistinctColors {
@@ -183,34 +71,20 @@ impl DistinctColors {
         Self {
             seed: [x, y, z],
             next_index: 0,
+            occupied: Vec::new(),
         }
     }
 
-    /// Generate a color perceptually distinct from every entry in `occupied`.
-    ///
-    /// Walks fresh indices along the R2 sequence and returns the first one
-    /// whose color clears the distinctness threshold.
-    pub fn next_filtered(&mut self, occupied: &[MemberColor]) -> MemberColor {
-        // Unparseable hexes can't constrain the new color, so silently drop them.
-        let occupied_oklabs: Vec<Oklab> =
-            occupied.iter().filter_map(|c| c.to_oklab().ok()).collect();
-        let is_distinct = |oklab: Oklab| {
-            occupied_oklabs
-                .iter()
-                .all(|&other| oklab.dist_sq(other) >= DISTINCT_THRESHOLD_SQ)
-        };
-
-        loop {
-            let idx = self.next_index;
-            self.next_index += 1;
-            if is_distinct(self.nth_oklab(idx)) {
-                return self.distinct_at(idx);
-            }
-        }
+    /// Register a color as occupied so future iterations avoid it.
+    pub fn push_occupied(&mut self, srgb: Srgb8) {
+        self.occupied.push(srgb);
     }
 
-    fn distinct_at(&self, index: usize) -> MemberColor {
-        MemberColor::Distinct(self.nth_hex(index))
+    /// Free a previously-occupied color so it becomes eligible again.
+    pub fn remove_occupied(&mut self, srgb: Srgb8) {
+        if let Some(pos) = self.occupied.iter().position(|c| *c == srgb) {
+            self.occupied.remove(pos);
+        }
     }
 
     fn nth_oklab(&self, n: usize) -> Oklab {
@@ -223,9 +97,44 @@ impl DistinctColors {
         }
     }
 
-    fn nth_hex(&self, n: usize) -> String {
-        let Srgb8 { r, g, b } = LinearRgb::from(self.nth_oklab(n)).into();
-        format!("#{r:02x}{g:02x}{b:02x}")
+    fn nth_srgb(&self, n: usize) -> Srgb8 {
+        LinearRgb::from(self.nth_oklab(n)).into()
+    }
+}
+
+/// Yields colors distinct from the map background and from anything already
+/// passed to [`DistinctColors::push_occupied`] or returned by a prior call.
+/// Returns `None` only if [`MAX_DISTINCT_TRIES`] consecutive samples all clash.
+impl Iterator for DistinctColors {
+    type Item = PlayerColor;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let member_oklabs: Vec<Oklab> = self.occupied.iter().copied().map(Oklab::from).collect();
+        let map_oklabs: Vec<Oklab> = MAP_RESERVED_COLORS
+            .iter()
+            .copied()
+            .map(Oklab::from)
+            .collect();
+
+        let is_distinct = |oklab: Oklab| {
+            member_oklabs
+                .iter()
+                .all(|&other| oklab.dist_sq(other) >= DISTINCT_THRESHOLD_SQ)
+                && map_oklabs
+                    .iter()
+                    .all(|&other| oklab.dist_sq(other) >= MAP_DISTINCT_THRESHOLD_SQ)
+        };
+
+        for _ in 0..MAX_DISTINCT_TRIES {
+            let idx = self.next_index;
+            self.next_index += 1;
+            if is_distinct(self.nth_oklab(idx)) {
+                let srgb = self.nth_srgb(idx);
+                self.occupied.push(srgb);
+                return Some(PlayerColor::distinct(srgb));
+            }
+        }
+        None
     }
 }
 

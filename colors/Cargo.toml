@@ -1,0 +1,9 @@
+[package]
+name = "ryguessr-colors"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.102"
+macros = { package = "ryguessr-macros", path = "../macros" }
+serde = "1.0.228"
