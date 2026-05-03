@@ -1,12 +1,142 @@
 use std::collections::BTreeSet;
 
-/// R2 quasirandom sequence constants (1/φ₃, 1/φ₃², 1/φ₃³)
+use anyhow::{Result, anyhow, bail};
+
+/// R2 quasirandom sequence constants (1/φ₃, 1/φ₃², 1/φ₃³). Walking these in 3D
+/// produces a low-discrepancy sequence, so successive indices map to evenly
+/// spread points in OKLAB space.
 const ALPHA: [f64; 3] = [0.8191725134, 0.6710436067, 0.5497004779];
 
-/// OKLAB ranges that stay mostly within sRGB gamut
+/// OKLAB ranges that stay mostly within the sRGB gamut.
 const L_RANGE: (f64, f64) = (0.35, 0.85);
 const A_RANGE: (f64, f64) = (-0.15, 0.15);
 const B_RANGE: (f64, f64) = (-0.15, 0.15);
+
+/// Squared Delta-E threshold below which two colors are considered too similar.
+/// 0.04 in OKLAB is a small but visible perceptual difference.
+const DISTINCT_THRESHOLD_SQ: f64 = 0.04 * 0.04;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Oklab {
+    pub l: f64,
+    pub a: f64,
+    pub b: f64,
+}
+
+impl Oklab {
+    fn dist_sq(self, other: Oklab) -> f64 {
+        (self.l - other.l).powi(2) + (self.a - other.a).powi(2) + (self.b - other.b).powi(2)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct LinearRgb {
+    r: f64,
+    g: f64,
+    b: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Srgb8 {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl TryFrom<&str> for Srgb8 {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &str) -> Result<Self> {
+        let hex = s.strip_prefix('#').unwrap_or(s);
+        if hex.len() != 6 || !hex.is_ascii() {
+            bail!("invalid hex color {s:?}, expected the form #RRGGBB");
+        }
+        let parse = |i: usize| {
+            u8::from_str_radix(&hex[i..i + 2], 16)
+                .map_err(|e| anyhow!("invalid hex color {s:?}: {e}"))
+        };
+        Ok(Srgb8 {
+            r: parse(0)?,
+            g: parse(2)?,
+            b: parse(4)?,
+        })
+    }
+}
+
+impl From<Srgb8> for LinearRgb {
+    fn from(Srgb8 { r, g, b }: Srgb8) -> Self {
+        let decode = |c: u8| {
+            let c = c as f64 / 255.0;
+            if c <= 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        LinearRgb {
+            r: decode(r),
+            g: decode(g),
+            b: decode(b),
+        }
+    }
+}
+
+impl From<LinearRgb> for Srgb8 {
+    fn from(LinearRgb { r, g, b }: LinearRgb) -> Self {
+        let encode = |c: f64| {
+            let c = c.clamp(0.0, 1.0);
+            let gamma = if c <= 0.0031308 {
+                12.92 * c
+            } else {
+                1.055 * c.powf(1.0 / 2.4) - 0.055
+            };
+            (gamma * 255.0 + 0.5) as u8
+        };
+        Srgb8 {
+            r: encode(r),
+            g: encode(g),
+            b: encode(b),
+        }
+    }
+}
+
+impl From<LinearRgb> for Oklab {
+    fn from(LinearRgb { r, g, b }: LinearRgb) -> Self {
+        // linear sRGB -> LMS
+        let l_ = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+        let m_ = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+        let s_ = 0.0883024619 * r + 0.2817188976 * g + 0.6299787005 * b;
+
+        let l = l_.cbrt();
+        let m = m_.cbrt();
+        let s = s_.cbrt();
+
+        Oklab {
+            l: 0.2104542553 * l + 0.7936177850 * m - 0.0040720403 * s,
+            a: 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            b: 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+        }
+    }
+}
+
+impl From<Oklab> for LinearRgb {
+    fn from(Oklab { l, a, b }: Oklab) -> Self {
+        // OKLAB -> LMS
+        let l_ = l + 0.3963377774 * a + 0.2158037573 * b;
+        let m_ = l - 0.1055613458 * a - 0.0638541728 * b;
+        let s_ = l - 0.0894841775 * a - 1.2914855480 * b;
+
+        let l = l_.powi(3);
+        let m = m_.powi(3);
+        let s = s_.powi(3);
+
+        LinearRgb {
+            r: 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            g: -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            b: -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum MemberColor {
@@ -17,11 +147,17 @@ pub enum MemberColor {
 }
 
 impl MemberColor {
-    pub fn to_oklab(&self) -> [f64; 3] {
+    /// The `#RRGGBB` representation, regardless of the variant.
+    pub fn hex(&self) -> &str {
         match self {
-            MemberColor::Custom(hex) => hex_to_oklab(hex),
-            MemberColor::Distinct { hex, .. } => hex_to_oklab(hex),
+            Self::Custom(hex) | Self::Distinct { hex, .. } => hex,
         }
+    }
+
+    pub fn to_oklab(&self) -> Result<Oklab> {
+        Srgb8::try_from(self.hex())
+            .map(LinearRgb::from)
+            .map(Oklab::from)
     }
 }
 
@@ -33,7 +169,11 @@ impl From<MemberColor> for String {
     }
 }
 
-/// A color generator that produces maximally distinct hex colors.
+/// Generates hex colors that are perceptually distinct from one another.
+///
+/// Each instance walks an R2 quasirandom sequence in OKLAB space starting from
+/// a random seed, so two `DistinctColors` will produce different palettes even
+/// at the same index.
 pub struct DistinctColors {
     seed: [f64; 3],
     next_index: usize,
@@ -41,7 +181,6 @@ pub struct DistinctColors {
 }
 
 impl DistinctColors {
-    /// Create a new generator with a random seed.
     pub fn new() -> Self {
         let (x, y, z) = rand::random();
         Self {
@@ -60,80 +199,62 @@ impl DistinctColors {
         }
     }
 
-    /// Generate a color that is perceptually distinct from the provided list of occupied colors.
+    /// Generate a color perceptually distinct from every entry in `occupied`.
+    ///
+    /// Returned indices (from previously-departed members) are tried first to
+    /// keep the index space compact. If none qualify, fresh indices are drawn
+    /// until one passes the threshold; indices that fail are parked for
+    /// possible reuse once a conflicting color leaves.
     pub fn next_filtered(&mut self, occupied: &[MemberColor]) -> MemberColor {
-        let occupied_oklabs: Vec<[f64; 3]> = occupied.iter().map(|c| c.to_oklab()).collect();
-        // Delta E threshold (Euclidean distance in Oklab).
-        // 0.04 is a decent perceptual distance
-        const THRESHOLD_SQ: f64 = 0.04 * 0.04;
-
-        // 1. Try returned indices first
-        let mut skipped = Vec::new();
-        let mut found = None;
-
-        while let Some(idx) = self.returned_indices.pop_first() {
-            let oklab = self.nth_oklab(idx);
-            if !occupied_oklabs
+        // Unparseable hexes can't constrain the new color, so silently drop them.
+        let occupied_oklabs: Vec<Oklab> =
+            occupied.iter().filter_map(|c| c.to_oklab().ok()).collect();
+        let is_distinct = |oklab: Oklab| {
+            occupied_oklabs
                 .iter()
-                .any(|&other| dist_sq(oklab, other) < THRESHOLD_SQ)
-            {
-                found = Some(idx);
-                break;
-            } else {
-                skipped.push(idx);
-            }
+                .all(|&other| oklab.dist_sq(other) >= DISTINCT_THRESHOLD_SQ)
+        };
+
+        let reusable = self
+            .returned_indices
+            .iter()
+            .copied()
+            .find(|&idx| is_distinct(self.nth_oklab(idx)));
+        if let Some(idx) = reusable {
+            self.returned_indices.remove(&idx);
+            return self.distinct_at(idx);
         }
 
-        // Put back skipped indices (they might be useful later if occupied colors change)
-        for idx in skipped {
-            self.returned_indices.insert(idx);
-        }
-
-        if let Some(idx) = found {
-            return MemberColor::Distinct {
-                hex: self.nth_hex(idx),
-                index: idx,
-            };
-        }
-
-        // 2. Try fresh indices
         loop {
             let idx = self.next_index;
             self.next_index += 1;
-            let oklab = self.nth_oklab(idx);
-
-            if !occupied_oklabs
-                .iter()
-                .any(|&other| dist_sq(oklab, other) < THRESHOLD_SQ)
-            {
-                return MemberColor::Distinct {
-                    hex: self.nth_hex(idx),
-                    index: idx,
-                };
-            } else {
-                // This index results in a color too close to an existing one.
-                // Store it in returned_indices so we can reuse it if the "blocking" color leaves.
-                self.returned_indices.insert(idx);
+            if is_distinct(self.nth_oklab(idx)) {
+                return self.distinct_at(idx);
             }
+            self.returned_indices.insert(idx);
         }
     }
 
-    fn nth_oklab(&self, n: usize) -> [f64; 3] {
-        let n_f = n as f64 + 1.0;
-        let l_unit = (self.seed[0] + n_f * ALPHA[0]) % 1.0;
-        let a_unit = (self.seed[1] + n_f * ALPHA[1]) % 1.0;
-        let b_unit = (self.seed[2] + n_f * ALPHA[2]) % 1.0;
+    fn distinct_at(&self, index: usize) -> MemberColor {
+        MemberColor::Distinct {
+            hex: self.nth_hex(index),
+            index,
+        }
+    }
 
-        [
-            lerp(L_RANGE.0, L_RANGE.1, l_unit),
-            lerp(A_RANGE.0, A_RANGE.1, a_unit),
-            lerp(B_RANGE.0, B_RANGE.1, b_unit),
-        ]
+    fn nth_oklab(&self, n: usize) -> Oklab {
+        // Offset by 1 so index 0 produces a color distinct from the seed itself.
+        let step = (n + 1) as f64;
+        Oklab {
+            l: lerp(L_RANGE.0, L_RANGE.1, (self.seed[0] + step * ALPHA[0]) % 1.0),
+            a: lerp(A_RANGE.0, A_RANGE.1, (self.seed[1] + step * ALPHA[1]) % 1.0),
+            b: lerp(B_RANGE.0, B_RANGE.1, (self.seed[2] + step * ALPHA[2]) % 1.0),
+        }
     }
 
     fn nth_hex(&self, n: usize) -> String {
-        let [r, g, b] = oklab_to_srgb8(self.nth_oklab(n));
-        format!("#{:02x}{:02x}{:02x}", r, g, b)
+        let Srgb8 { r, g, b } = LinearRgb::from(self.nth_oklab(n)).into();
+        format!("#{r:02x}{g:02x}{b:02x}")
     }
 }
 
@@ -141,18 +262,12 @@ impl Iterator for DistinctColors {
     type Item = MemberColor;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let index = if let Some(idx) = self.returned_indices.pop_first() {
-            idx
-        } else {
+        let index = self.returned_indices.pop_first().unwrap_or_else(|| {
             let idx = self.next_index;
             self.next_index += 1;
             idx
-        };
-
-        Some(MemberColor::Distinct {
-            hex: self.nth_hex(index),
-            index,
-        })
+        });
+        Some(self.distinct_at(index))
     }
 }
 
@@ -164,91 +279,4 @@ impl Default for DistinctColors {
 
 fn lerp(a: f64, b: f64, t: f64) -> f64 {
     a + (b - a) * t
-}
-
-fn dist_sq(a: [f64; 3], b: [f64; 3]) -> f64 {
-    (a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)
-}
-
-/// Parse hex string (#RRGGBB) to OKLAB.
-fn hex_to_oklab(hex: &str) -> [f64; 3] {
-    let hex = hex.trim_start_matches('#');
-    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
-    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
-    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
-
-    let r = srgb_to_linear(r as f64 / 255.0);
-    let g = srgb_to_linear(g as f64 / 255.0);
-    let b = srgb_to_linear(b as f64 / 255.0);
-
-    linear_srgb_to_oklab([r, g, b])
-}
-
-fn srgb_to_linear(c: f64) -> f64 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
-
-fn linear_srgb_to_oklab(rgb: [f64; 3]) -> [f64; 3] {
-    let [r, g, b] = rgb;
-
-    // linear sRGB -> LMS
-    let l_ = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
-    let m_ = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
-    let s_ = 0.0883024619 * r + 0.2817188976 * g + 0.6299787005 * b;
-
-    let l = l_.abs().powf(1.0 / 3.0) * l_.signum();
-    let m = m_.abs().powf(1.0 / 3.0) * m_.signum();
-    let s = s_.abs().powf(1.0 / 3.0) * s_.signum();
-
-    // LMS -> OKLAB
-    [
-        0.2104542553 * l + 0.7936177850 * m - 0.0040720403 * s,
-        1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
-        0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
-    ]
-}
-
-/// OKLAB -> linear sRGB via LMS intermediate.
-fn oklab_to_linear_srgb(lab: [f64; 3]) -> [f64; 3] {
-    let [l, a, b] = lab;
-
-    // OKLAB -> LMS (cube roots)
-    let l_ = l + 0.3963377774 * a + 0.2158037573 * b;
-    let m_ = l - 0.1055613458 * a - 0.0638541728 * b;
-    let s_ = l - 0.0894841775 * a - 1.2914855480 * b;
-
-    let l = l_.powi(3);
-    let m = m_.powi(3);
-    let s = s_.powi(3);
-
-    // LMS -> linear sRGB
-    [
-        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
-    ]
-}
-
-/// Linear sRGB -> sRGB with gamma correction and clamping.
-fn linear_to_srgb(c: f64) -> f64 {
-    let c = c.clamp(0.0, 1.0);
-    if c <= 0.0031308 {
-        12.92 * c
-    } else {
-        1.055 * c.powf(1.0 / 2.4) - 0.055
-    }
-}
-
-/// OKLAB [L, a, b] -> sRGB [R, G, B] as u8.
-fn oklab_to_srgb8(lab: [f64; 3]) -> [u8; 3] {
-    let lin = oklab_to_linear_srgb(lab);
-    [
-        (linear_to_srgb(lin[0]) * 255.0 + 0.5) as u8,
-        (linear_to_srgb(lin[1]) * 255.0 + 0.5) as u8,
-        (linear_to_srgb(lin[2]) * 255.0 + 0.5) as u8,
-    ]
 }
