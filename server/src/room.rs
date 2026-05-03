@@ -110,10 +110,6 @@ impl Room {
             return;
         };
 
-        if let MemberColor::Distinct { index, .. } = member.color {
-            self.colors.return_index(index); // Reuse the color for the next member that joins
-        };
-
         // Broadcast leave event
         let _ = self.event_tx.send(RoomEvent::PlayerLeft {
             username: member.username,

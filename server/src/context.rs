@@ -132,11 +132,6 @@ impl Model {
             .get_mut(&handle.room)
             .ok_or(StatusCode::NOT_FOUND)?;
         if let Some(member) = room.members.get_mut(client_id) {
-            if let colors::MemberColor::Distinct { index, .. } = member.color {
-                // If the member previously had a distinct color, return the index to the pool.
-                room.colors.return_index(index);
-            }
-
             member.color = colors::MemberColor::Custom(new_color);
         }
 
