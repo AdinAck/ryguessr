@@ -41,15 +41,9 @@ pub async fn init_handler(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let mut model = context.model.write().await;
-
-    let username = request
-        .username
-        .filter(|n| !n.is_empty())
-        .unwrap_or_else(|| model.generate_unique_name());
-
-    let (room_id, color) =
-        model.create_room(location, client_id.clone(), username.clone(), request.color);
+    let (room_id, username, color) = context
+        .create_room(location, client_id.clone(), request.username, request.color)
+        .await;
 
     Ok((
         jar,

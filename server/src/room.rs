@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use colors::{Srgb8, srgb};
 use derive_more::{AsRef, Deref};
 use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
+use tokio::{sync::broadcast, task::JoinHandle};
 
 use crate::{
     Coordinates, RoomEvent,
@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Used when [`DistinctColors`] is saturated and can't produce a fresh
-/// distinct color.
+/// distinct color. (Rare)
 const FALLBACK_COLOR: Srgb8 = srgb!("#808080");
 
 /// A room exists in a particular [`Location`], housing multiple members who are all
@@ -36,10 +36,10 @@ pub struct Room {
     config: Config,
     /// The event sender handle for the room, used to broadcast events to all members of the room.
     pub event_tx: broadcast::Sender<RoomEvent>,
-    /// The number of active SSE connections to this room.
-    pub active_connections: usize,
-    /// The last time there was activity in this room (connection or creation).
-    pub last_activity: std::time::Instant,
+    /// Number of live SSE connections subscribed to this room.
+    active_connections: usize,
+    /// Handle to a cleanup task scheduled while the room is idle.
+    cleanup_handle: Option<JoinHandle<()>>,
     // TODO: location history for the round
 }
 
@@ -71,23 +71,36 @@ impl Room {
             config: Config {},
             event_tx,
             active_connections: 0,
-            last_activity: std::time::Instant::now(),
+            cleanup_handle: None,
         }
     }
 
-    pub fn increment_connection(&mut self) {
+    /// Register a new live SSE connection. Aborts any pending cleanup since
+    /// the room is no longer idle.
+    pub fn connect(&mut self) {
         self.active_connections += 1;
-        self.last_activity = std::time::Instant::now();
+        if let Some(prev) = self.cleanup_handle.take() {
+            prev.abort();
+        }
     }
 
-    pub fn decrement_connection(&mut self) {
+    /// Unregister a live SSE connection. The caller is responsible for starting
+    /// cleanup if the room is now idle.
+    pub fn disconnect(&mut self) {
         self.active_connections = self.active_connections.saturating_sub(1);
-        self.last_activity = std::time::Instant::now();
     }
 
-    pub fn is_stale(&self) -> bool {
+    /// A room is idle when no live SSE connection is subscribed to it.
+    pub fn is_idle(&self) -> bool {
         self.active_connections == 0
-            && self.last_activity.elapsed() > std::time::Duration::from_secs(60)
+    }
+
+    /// Store the handle for a pending cleanup task, aborting any prior one so
+    /// only the freshest timer is ever live.
+    pub(crate) fn arm_cleanup(&mut self, handle: JoinHandle<()>) {
+        if let Some(prev) = self.cleanup_handle.replace(handle) {
+            prev.abort();
+        }
     }
 
     /// Add a member to the room. If `color` is not provided, a new distinct color is generated.
@@ -97,7 +110,6 @@ impl Room {
         username: String,
         color_override: Option<Srgb8>,
     ) {
-        self.last_activity = std::time::Instant::now();
         let color = match color_override {
             Some(srgb) => {
                 self.colors.push_occupied(srgb);
@@ -121,7 +133,6 @@ impl Room {
     }
 
     pub fn remove_member(&mut self, client_id: &handle::Id) {
-        self.last_activity = std::time::Instant::now();
         let Some(member) = self.members.remove(client_id) else {
             return;
         };
@@ -136,7 +147,6 @@ impl Room {
     /// Handle a ready submission from a member of the room.
     /// Returns true if everyone is ready.
     pub fn submit_ready(&mut self, client_id: &handle::Id) -> bool {
-        self.last_activity = std::time::Instant::now();
         let Some(member) = self.members.get_mut(client_id) else {
             return false;
         };
@@ -148,7 +158,6 @@ impl Room {
 
     /// Transition to next round
     pub fn start_next_round(&mut self, new_location: Location) {
-        self.last_activity = std::time::Instant::now();
         let pano_id = new_location.pano_id.clone();
         self.location = new_location;
 
@@ -167,7 +176,6 @@ impl Room {
     /// Handle a guess from a member of the room. This will update the member's score and broadcast
     /// if everyone has submitted a guess for the current round.
     pub fn submit_guess(&mut self, client_id: &handle::Id, guess: Coordinates) {
-        self.last_activity = std::time::Instant::now();
         let Some(member) = self.members.get_mut(client_id) else {
             return;
         };
@@ -245,7 +253,7 @@ impl MemberAttributes {
 }
 
 /// The unique identifier for a [`Room`].
-#[derive(Clone, AsRef, Deref, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, AsRef, Debug, Deref, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Id(String);
 
 impl Id {

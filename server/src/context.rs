@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use axum::http::StatusCode;
 use colors::Srgb8;
@@ -15,13 +15,21 @@ use crate::{
 
 pub type SharedModel = Arc<RwLock<Model>>;
 
-/// The context available to the API surface to facilitate the ryguessr services.
+/// How long an idle room (no live SSE connections) is kept around before it
+/// and any ghost members are removed.
+const CLEANUP_DELAY: Duration = Duration::from_secs(60);
+
+/// The service layer shared with every request handler. Owns the
+/// [`LocationEngine`] and a shared handle to the in-memory [`Model`], and is
+/// where any lifecycle operation that needs to touch time or spawn background work lives.
 #[derive(Clone)]
 pub struct Context {
     pub engine: Arc<LocationEngine>,
     pub model: SharedModel,
 }
 
+/// The in-memory state of the application. Methods on
+/// [`Model`] are synchronous, anything async or time-aware lives on [`Context`].
 #[derive(Default)]
 pub struct Model {
     pub clients: HashMap<handle::Id, Handle>,
@@ -32,63 +40,106 @@ pub struct Model {
 impl Context {
     /// Create an empty context.
     pub fn new(engine: LocationEngine) -> Self {
-        let model = Arc::new(RwLock::new(Model::default()));
-
-        // Spawn a background task to periodically clean up stale rooms.
-        let model_clone = model.clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-            loop {
-                interval.tick().await;
-                let mut model = model_clone.write().await;
-                model.cleanup_stale_rooms();
-            }
-        });
-
         Self {
             engine: Arc::new(engine),
-            model,
+            model: Arc::new(RwLock::new(Model::default())),
         }
+    }
+
+    /// Handle the end of an SSE stream: drop the room's connection count,
+    /// remove the client if they're still bound to this room, and arm
+    /// cleanup if the room is now idle.
+    pub async fn on_sse_disconnect(&self, client_id: &handle::Id, room_id: &room::Id) {
+        let mut model = self.model.write().await;
+
+        if let Some(room) = model.rooms.get_mut(room_id) {
+            room.disconnect();
+        }
+
+        let still_in_room = model
+            .clients
+            .get(client_id)
+            .is_some_and(|h| &h.room == room_id);
+        if still_in_room {
+            model.remove_client(client_id);
+            tracing::info!(client_id = %**client_id, "client disconnected, removed from room");
+        }
+
+        if model.rooms.get(room_id).is_some_and(Room::is_idle) {
+            self.start_cleanup(&mut model, room_id.clone());
+        }
+    }
+
+    /// Move a client into an existing room. Re-arms the new room's cleanup
+    /// timer if it has no live SSE connections.
+    pub async fn move_client_to_room(
+        &self,
+        client_id: &handle::Id,
+        new_room_id: &room::Id,
+    ) -> Result<(), StatusCode> {
+        let mut model = self.model.write().await;
+        model.move_client_to_room(client_id, new_room_id)?;
+
+        if model.rooms.get(new_room_id).is_some_and(Room::is_idle) {
+            self.start_cleanup(&mut model, new_room_id.clone());
+        }
+
+        Ok(())
+    }
+
+    /// Create a new room with the given user as the first member. Arms the
+    /// cleanup timer immediately so a client that never establishes an SSE
+    /// connection doesn't leak the room.
+    pub async fn create_room(
+        &self,
+        location: Location,
+        client_id: handle::Id,
+        requested_username: Option<String>,
+        color_override: Option<Srgb8>,
+    ) -> (room::Id, String, Srgb8) {
+        let mut model = self.model.write().await;
+        let username = requested_username
+            .filter(|n| !n.is_empty())
+            .unwrap_or_else(|| model.generate_unique_name());
+
+        model.remove_client(&client_id);
+        let (room_id, color) =
+            model.insert_new_room(location, client_id, username.clone(), color_override);
+
+        self.start_cleanup(&mut model, room_id.clone());
+
+        (room_id, username, color)
+    }
+
+    /// Spawn a cleanup task for the given room and store its handle on the room
+    /// so [`Room::connect`] can abort it if the room becomes live again.
+    fn start_cleanup(&self, model: &mut Model, room_id: room::Id) {
+        let model_arc = Arc::clone(&self.model);
+        let task_room_id = room_id.clone();
+
+        let handle = tokio::spawn(async move {
+            tokio::time::sleep(CLEANUP_DELAY).await;
+            model_arc.write().await.drop_room_if_idle(&task_room_id);
+        });
+
+        let room = model
+            .rooms
+            .get_mut(&room_id)
+            .expect("start_cleanup target room must exist while the write lock is held");
+
+        room.arm_cleanup(handle);
     }
 }
 
 impl Model {
-    pub fn cleanup_stale_rooms(&mut self) {
-        tracing::debug!(
-            "running stale room cleanup ({} rooms active)",
-            self.rooms.len()
-        );
-        let stale_room_ids: Vec<_> = self
-            .rooms
-            .iter()
-            .filter(|(_, room)| room.is_stale())
-            .map(|(id, _)| id.clone())
-            .collect();
-
-        for id in stale_room_ids {
-            tracing::info!(room_id = %id.as_ref(), "cleaning up stale room");
-            if let Some(_room) = self.rooms.remove(&id) {
-                // Also remove all clients that were in this room
-                let client_ids: Vec<_> = self
-                    .clients
-                    .iter()
-                    .filter(|(_, handle)| handle.room == id)
-                    .map(|(id, _)| id.clone())
-                    .collect();
-                for client_id in client_ids {
-                    tracing::debug!(client_id = %*client_id, "removing client from stale room");
-                    self.clients.remove(&client_id);
-                }
-            }
-        }
-    }
-
     pub fn generate_unique_name(&self) -> String {
         let mut name = self.name_generator.generate();
+
         // Check for collisions across all existing clients.
         while self.clients.values().any(|c| c.username == name) {
             name = self.name_generator.generate();
         }
+
         name
     }
 
@@ -144,7 +195,18 @@ impl Model {
         Ok(())
     }
 
-    pub fn move_client_to_room(
+    pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, StatusCode> {
+        let room_id = self
+            .clients
+            .get(client_id)
+            .ok_or(StatusCode::UNAUTHORIZED)?
+            .room
+            .clone();
+
+        self.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)
+    }
+
+    pub(crate) fn move_client_to_room(
         &mut self,
         client_id: &handle::Id,
         new_room_id: &room::Id,
@@ -167,41 +229,34 @@ impl Model {
         let color = handle.color;
         let old_room_id = handle.room.clone();
 
-        // Remove client from old room
         self.remove_from_room(client_id, &old_room_id);
 
-        // Add client to new room
         self.rooms
             .get_mut(new_room_id)
             .unwrap()
             .add_member(client_id, username, Some(color));
 
-        // Update client's handle
         self.clients.get_mut(client_id).unwrap().room = new_room_id.clone();
 
         Ok(())
     }
 
-    /// Remove a client from its room and from the client list, cleaning up empty rooms.
-    pub fn remove_client(&mut self, client_id: &handle::Id) {
+    pub(crate) fn remove_client(&mut self, client_id: &handle::Id) {
         let Some(handle) = self.clients.remove(client_id) else {
             return;
         };
         self.remove_from_room(client_id, &handle.room);
     }
 
-    /// Create a new room with the given user as the first member, returning the room Id and assigned color.
-    pub fn create_room(
+    /// Insert a freshly created room with the given user as the first member.
+    /// Returns the new room id and the color assigned to the member.
+    pub(crate) fn insert_new_room(
         &mut self,
         location: Location,
         client_id: handle::Id,
         username: String,
         color_override: Option<Srgb8>,
     ) -> (room::Id, Srgb8) {
-        // Ensure the client is removed from any existing rooms before creating a new one.
-        self.remove_client(&client_id);
-
-        // Generate room Id (ensure no collisions)
         let room_id = {
             let mut id = room::Id::random();
             while self.rooms.contains_key(&id) {
@@ -212,7 +267,6 @@ impl Model {
 
         tracing::info!(room_id = %room_id.as_ref(), username = %username, "created new room");
 
-        // Create room + handle
         let room = Room::new(
             location,
             client_id.clone(),
@@ -223,7 +277,7 @@ impl Model {
 
         self.rooms.insert(room_id.clone(), room);
         self.clients.insert(
-            client_id.clone(),
+            client_id,
             Handle {
                 room: room_id.clone(),
                 username,
@@ -234,23 +288,97 @@ impl Model {
         (room_id, color)
     }
 
-    pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, StatusCode> {
-        let room_id = self
-            .clients
-            .get(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?
-            .room
-            .clone();
-        self.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)
-    }
-
     fn remove_from_room(&mut self, client_id: &handle::Id, room_id: &room::Id) {
         if let Some(room) = self.rooms.get_mut(room_id) {
             room.remove_member(client_id);
-            if room.members.is_empty() {
-                tracing::info!(room_id = %room_id.as_ref(), "room empty, cleaning up...");
-                self.rooms.remove(room_id);
-            }
         }
+    }
+
+    /// If the room exists and is idle, drop it and remove any ghost clients
+    /// still pointing at it.
+    pub(crate) fn drop_room_if_idle(&mut self, room_id: &room::Id) {
+        if !self.rooms.get(room_id).is_some_and(Room::is_idle) {
+            return;
+        }
+        self.clients.retain(|_, h| &h.room != room_id);
+        self.rooms.remove(room_id);
+        tracing::info!(room_id = %room_id.as_ref(), "removed idle room");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geo::Coordinates;
+
+    fn dummy_location() -> Location {
+        Location {
+            pano_id: "pano".to_string(),
+            coordinates: Coordinates { lat: 0.0, lng: 0.0 },
+        }
+    }
+
+    fn insert(model: &mut Model, name: &str) -> (handle::Id, room::Id) {
+        let client_id = handle::Id::generate();
+        let (room_id, _) =
+            model.insert_new_room(dummy_location(), client_id.clone(), name.into(), None);
+        (client_id, room_id)
+    }
+
+    #[test]
+    fn new_room_is_idle() {
+        let mut model = Model::default();
+        let (_, room_id) = insert(&mut model, "canyon");
+        assert!(model.rooms[&room_id].is_idle());
+    }
+
+    #[test]
+    fn connect_then_disconnect_toggles_idle() {
+        let mut model = Model::default();
+        let (_, room_id) = insert(&mut model, "canyon");
+        let room = model.rooms.get_mut(&room_id).unwrap();
+        room.connect();
+        assert!(!room.is_idle());
+        room.disconnect();
+        assert!(room.is_idle());
+    }
+
+    #[test]
+    fn drop_if_idle_evicts_ghost_clients() {
+        let mut model = Model::default();
+        insert(&mut model, "canyon");
+        let (_, room_id) = insert(&mut model, "adin");
+        // Bob's room is idle (no SSE), holds Bob as a ghost member.
+        model.drop_room_if_idle(&room_id);
+        assert!(!model.rooms.contains_key(&room_id));
+        // Alice's ghost still exists in her own (still-idle) room; only Bob
+        // got cleaned up.
+        assert_eq!(model.clients.len(), 1);
+    }
+
+    #[test]
+    fn drop_if_idle_spares_live_room() {
+        let mut model = Model::default();
+        let (_, room_id) = insert(&mut model, "canyon");
+        model.rooms.get_mut(&room_id).unwrap().connect();
+        model.drop_room_if_idle(&room_id);
+        assert!(model.rooms.contains_key(&room_id));
+    }
+
+    #[test]
+    fn reinit_leaves_prior_room_idle_and_empty() {
+        let mut model = Model::default();
+        let client_id = handle::Id::generate();
+        let (first, _) =
+            model.insert_new_room(dummy_location(), client_id.clone(), "canyon".into(), None);
+
+        model.remove_client(&client_id);
+        let (second, _) = model.insert_new_room(dummy_location(), client_id, "canyon".into(), None);
+
+        assert_ne!(first, second);
+        let prior = &model.rooms[&first];
+        assert!(prior.is_idle());
+        assert!(prior.members.is_empty());
+        assert_eq!(model.rooms[&second].members.len(), 1);
     }
 }

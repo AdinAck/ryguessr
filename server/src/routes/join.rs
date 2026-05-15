@@ -9,7 +9,5 @@ pub async fn join_handler(
     client_id: handle::Id,
     Json(room_id): Json<room::Id>,
 ) -> Result<(), StatusCode> {
-    let mut model = context.model.write().await;
-
-    model.move_client_to_room(&client_id, &room_id)
+    context.move_client_to_room(&client_id, &room_id).await
 }
