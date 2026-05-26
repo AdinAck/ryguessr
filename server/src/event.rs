@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{Coordinates, geo::PanoId};
 use axum::response::sse;
 use colors::Srgb8;
@@ -14,7 +12,7 @@ type Username = String;
 pub enum RoomEvent {
     RoundStart(RoundStartData),
     RoundEnd(RoundEndData),
-    PlayerJoined(JoinData),
+    PlayerJoined(PlayerData),
     PlayerLeft { username: Username },
 }
 
@@ -35,20 +33,20 @@ pub struct RoundStartData {
 #[derive(Debug, Clone, Serialize)]
 pub struct RoundEndData {
     pub real_location: Coordinates,
-    pub player_results: HashMap<Username, PlayerResults>,
+    pub player_results: Vec<PlayerResult>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct PlayerResults {
-    pub last_score: u32,
-    pub cum_score: u32,
+pub struct PlayerResult {
+    pub player: PlayerData,
+    pub round_score: u32,
     pub distance: f64,
     pub guess_location: Coordinates,
-    pub color: Srgb8,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct JoinData {
-    pub username: String,
+pub struct PlayerData {
+    pub username: Username,
     pub color: Srgb8,
+    pub score: u32,
 }

@@ -8,7 +8,7 @@ use tokio::{sync::broadcast, task::JoinHandle};
 use crate::{
     Coordinates, RoomEvent,
     colors::{DistinctColors, PlayerColor},
-    event::{JoinData, PlayerResults, RoundEndData, RoundStartData},
+    event::{PlayerData, PlayerResult, RoundEndData, RoundStartData},
     geo::Location,
     handle, score,
 };
@@ -120,16 +120,21 @@ impl Room {
                 PlayerColor::distinct(FALLBACK_COLOR)
             }),
         };
-        self.members.insert(
-            client_id.clone(),
-            MemberAttributes::new(username.clone(), color),
-        );
+
+        let new_member = MemberAttributes::new(username.clone(), color);
+
+        let event = RoomEvent::PlayerJoined(PlayerData::from(&new_member));
+
+        self.members.insert(client_id.clone(), new_member);
 
         // Broadcast join event
-        let _ = self.event_tx.send(RoomEvent::PlayerJoined(JoinData {
-            username,
-            color: color.srgb,
-        }));
+        let _ = self.event_tx.send(event);
+    }
+
+    /// Snapshot of every member as `PlayerData`, suitable for sending to a
+    /// client that needs to render the current roster.
+    pub fn players(&self) -> Vec<PlayerData> {
+        self.members.values().map(PlayerData::from).collect()
     }
 
     pub fn remove_member(&mut self, client_id: &handle::Id) {
@@ -194,20 +199,15 @@ impl Room {
                 .values()
                 .map(|m| {
                     let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
-                    let color = m.color.srgb;
                     let distance =
                         score::haversine_distance(&guess_location, &self.location.coordinates);
-                    let last_score = score::calculate_score(distance) as u32;
-                    (
-                        m.username.clone(),
-                        PlayerResults {
-                            last_score,
-                            cum_score: m.score,
-                            distance,
-                            guess_location,
-                            color,
-                        },
-                    )
+                    let round_score = score::calculate_score(distance) as u32;
+                    PlayerResult {
+                        player: PlayerData::from(m),
+                        round_score,
+                        distance,
+                        guess_location,
+                    }
                 })
                 .collect();
 
@@ -248,6 +248,16 @@ impl MemberAttributes {
             guess: None,
             color,
             ready_next_round: false,
+        }
+    }
+}
+
+impl From<&MemberAttributes> for PlayerData {
+    fn from(m: &MemberAttributes) -> Self {
+        Self {
+            username: m.username.clone(),
+            color: m.color.srgb,
+            score: m.score,
         }
     }
 }
