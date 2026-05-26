@@ -13,7 +13,17 @@ pub enum RoomEvent {
     RoundStart(RoundStartData),
     RoundEnd(RoundEndData),
     PlayerJoined(PlayerData),
-    PlayerLeft { username: Username },
+    PlayerLeft {
+        username: Username,
+    },
+    ChangeName {
+        old_username: Username,
+        new_username: Username,
+    },
+    ChangeColor {
+        username: Username,
+        color: Srgb8,
+    },
 }
 
 impl TryFrom<RoomEvent> for sse::Event {

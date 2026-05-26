@@ -5,7 +5,7 @@ use colors::Srgb8;
 use tokio::sync::RwLock;
 
 use crate::{
-    Handle, Room,
+    Handle, Room, RoomEvent,
     colors::PlayerColor,
     event::PlayerData,
     geo::{Location, engine::LocationEngine},
@@ -151,9 +151,13 @@ impl Model {
         name
     }
 
-    pub fn set_name(&mut self, client_id: &handle::Id, new_name: String) -> Result<(), StatusCode> {
+    pub fn set_name(
+        &mut self,
+        client_id: &handle::Id,
+        new_username: String,
+    ) -> Result<(), StatusCode> {
         // Check for name collision across all existing clients.
-        if self.clients.values().any(|c| c.username == new_name) {
+        if self.clients.values().any(|c| c.username == new_username) {
             return Err(StatusCode::CONFLICT);
         }
 
@@ -162,7 +166,7 @@ impl Model {
             .clients
             .get_mut(client_id)
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.username = new_name.clone();
+        handle.username = new_username.clone();
 
         // Update the client's name in their current room.
         let room = self
@@ -170,7 +174,14 @@ impl Model {
             .get_mut(&handle.room)
             .ok_or(StatusCode::NOT_FOUND)?;
         if let Some(member) = room.members.get_mut(client_id) {
-            member.username = new_name;
+            let old_username = member.username.clone();
+            member.username = new_username.clone();
+
+            // Broadcast to the room
+            let _ = room.event_tx.send(RoomEvent::ChangeName {
+                old_username,
+                new_username,
+            });
         }
 
         Ok(())
@@ -198,6 +209,12 @@ impl Model {
             room.colors.remove_occupied(member.color.srgb);
             room.colors.push_occupied(new_color);
             member.color = PlayerColor::custom(new_color);
+
+            // Broadcast to the room
+            let _ = room.event_tx.send(RoomEvent::ChangeColor {
+                username: member.username.clone(),
+                color: new_color,
+            });
         }
 
         Ok(())
@@ -356,11 +373,8 @@ mod tests {
         let mut model = Model::default();
         insert(&mut model, "canyon");
         let (_, room_id) = insert(&mut model, "adin");
-        // Bob's room is idle (no SSE), holds Bob as a ghost member.
         model.drop_room_if_idle(&room_id);
         assert!(!model.rooms.contains_key(&room_id));
-        // Alice's ghost still exists in her own (still-idle) room; only Bob
-        // got cleaned up.
         assert_eq!(model.clients.len(), 1);
     }
 

@@ -11,5 +11,6 @@ pub async fn join_handler(
     Json(room_id): Json<room::Id>,
 ) -> Result<Json<Vec<PlayerData>>, StatusCode> {
     let players = context.move_client_to_room(&client_id, &room_id).await?;
+
     Ok(Json(players))
 }
