@@ -1,19 +1,21 @@
-"use client";
-import { Separator } from "../ui/separator";
-import { Field } from "../ui/field";
-import { Button } from "../ui/button";
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+"use client"
+import { Separator } from "../ui/separator"
+import { Item, ItemContent, ItemTitle } from "../ui/item"
+import { MapPin } from "lucide-react"
+import { Field } from "../ui/field"
+import { Button } from "../ui/button"
+import { useState, memo } from "react"
+import { Input } from "@/components/ui/input"
 
 // Zustand useRoomSettings
-import { useRoomSettings } from "@/store/useSettingsStore";
+import { useRoomSettings } from "@/store/useSettingsStore"
 
 const RoomSettings = () => {
   const [roomCodeInput, setRoomCodeInput] = useState<string | undefined>(
     undefined,
-  );
+  )
 
-  const roomCode = useRoomSettings((state) => state.roomCode);
+  const roomCode = useRoomSettings((state) => state.roomCode)
 
   return (
     <>
@@ -44,12 +46,26 @@ const RoomSettings = () => {
           </Button>
         </Field>
       </form>
+      <Separator />
+      <p className="text-lg font-medium">Players</p>
+      <Separator />
+      <div className="flex flex-col w-full">
+        <Item variant="outline" >
+          <ItemContent className="flex flex-row justify-between">
+            <div className="flex flex-row gap-3 text-xl items-center">
+            <MapPin color={"red"} strokeWidth={1.5} size="1em" />
+            <ItemTitle>Me when</ItemTitle>
+            </div>
+            <p className="text-gray-300">9999</p>
+          </ItemContent>
+        </Item>
+      </div>
       {/* <Field orientation="horizontal" className="w-fit"> */}
       {/*   <FieldLabel htmlFor="2fa">Multi-factor authentication</FieldLabel> */}
       {/*   <Switch id="2fa" /> */}
       {/* </Field> */}
     </>
-  );
-};
+  )
+}
 
-export default RoomSettings;
+export default RoomSettings
