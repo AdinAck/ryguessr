@@ -48,6 +48,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/join", post(routes::join::join_handler))
         .route("/api/username", post(routes::username::username_handler))
         .route("/api/color", post(routes::color::color_handler))
+        .route("/api/room", get(routes::room::room_handler))
         .with_state(cx)
         .layer(TraceLayer::new_for_http())
         .fallback_service(ServeDir::new("../web/out"));

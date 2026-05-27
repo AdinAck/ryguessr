@@ -13,6 +13,9 @@ use crate::{
     handle, score,
 };
 
+/// The length of a [`Room::Id`] identifier string.
+const ROOM_ID_LENGTH: usize = 4;
+
 /// Used when [`DistinctColors`] is saturated and can't produce a fresh
 /// distinct color. (Rare)
 const FALLBACK_COLOR: Srgb8 = srgb!("#808080");
@@ -263,8 +266,25 @@ impl From<&MemberAttributes> for PlayerData {
 }
 
 /// The unique identifier for a [`Room`].
-#[derive(Clone, AsRef, Debug, Deref, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, AsRef, Debug, Deref, Hash, PartialEq, Eq, Serialize)]
 pub struct Id(String);
+
+impl<'de> Deserialize<'de> for Id {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let len = s.chars().count();
+        if len != ROOM_ID_LENGTH {
+            return Err(serde::de::Error::invalid_length(
+                s.chars().count(),
+                &"a string of exactly 5 characters",
+            ));
+        }
+        Ok(Self(s))
+    }
+}
 
 impl Id {
     /// The characters that are allowed to be used in a random [`Id`].
@@ -273,7 +293,7 @@ impl Id {
 
     /// Generate a random 4 character human readable [`Id`] for a new [`Room`].
     pub fn random() -> Self {
-        (0..4)
+        (0..ROOM_ID_LENGTH)
             .map(|_| Self::ALLOWED_CHARS[rand::random_range(0..Self::ALLOWED_CHARS.len())] as char)
             .collect()
     }

@@ -119,6 +119,14 @@ impl Context {
         (room_id, username, color)
     }
 
+    pub async fn get_room_players(
+        &self,
+        room_id: &room::Id,
+    ) -> Result<Vec<PlayerData>, StatusCode> {
+        let model = self.model.read().await;
+        Ok(model.room(room_id)?.players())
+    }
+
     /// Spawn a cleanup task for the given room and store its handle on the room
     /// so [`Room::connect`] can abort it if the room becomes live again.
     fn start_cleanup(&self, model: &mut Model, room_id: room::Id) {
@@ -228,7 +236,15 @@ impl Model {
             .room
             .clone();
 
-        self.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)
+        self.room_mut(&room_id)
+    }
+
+    pub fn room(&self, room_id: &room::Id) -> Result<&Room, StatusCode> {
+        self.rooms.get(room_id).ok_or(StatusCode::NOT_FOUND)
+    }
+
+    pub fn room_mut(&mut self, room_id: &room::Id) -> Result<&mut Room, StatusCode> {
+        self.rooms.get_mut(room_id).ok_or(StatusCode::NOT_FOUND)
     }
 
     pub(crate) fn move_client_to_room(
