@@ -27,6 +27,7 @@ const CLEANUP_DELAY: Duration = Duration::from_secs(60);
 pub struct Context {
     pub engine: Arc<LocationEngine>,
     pub model: SharedModel,
+    pub api_key: Arc<str>,
 }
 
 /// The in-memory state of the application. Methods on
@@ -40,10 +41,11 @@ pub struct Model {
 
 impl Context {
     /// Create an empty context.
-    pub fn new(engine: LocationEngine) -> Self {
+    pub fn new(engine: LocationEngine, google_maps_api_key: String) -> Self {
         Self {
             engine: Arc::new(engine),
             model: Arc::new(RwLock::new(Model::default())),
+            api_key: Arc::from(google_maps_api_key),
         }
     }
 

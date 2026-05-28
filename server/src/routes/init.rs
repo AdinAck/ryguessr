@@ -13,6 +13,7 @@ pub struct InitRequest {
 
 #[derive(serde::Serialize)]
 pub struct InitResponse {
+    api_key: String,
     room_id: room::Id,
     username: String,
     color: Srgb8,
@@ -48,6 +49,7 @@ pub async fn init_handler(
     Ok((
         jar,
         Json(InitResponse {
+            api_key: context.api_key.to_string(),
             room_id,
             username,
             color,

@@ -7,6 +7,7 @@ use reqwest::StatusCode;
 
 use crate::{Context, event::PlayerData, room};
 
+#[tracing::instrument(skip_all, fields(room_id = %*room_id))]
 pub async fn room_handler(
     State(context): State<Context>,
     Path(room_id): Path<room::Id>,
