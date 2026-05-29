@@ -9,13 +9,15 @@ import { Input } from "@/components/ui/input";
 
 // Zustand useRoomSettings
 import { RoomSettingsActions, useRoomSettings } from "@/store/useSettingsStore";
-// import { RoomSettingsActions } from "@/store/useSettingsStore";
 
 // Error Code enum
 import StatusCodes from "@/types/status-codes";
 
 // RoomPeek reseponse type
 import PlayerData from "@/types/player-data";
+
+// SSE Refresh
+import { refreshSseEventStream } from "@/lib/signal";
 
 const RoomSettings = () => {
   const roomCode = useRoomSettings((state) => state.roomCode);
@@ -35,8 +37,8 @@ const RoomSettings = () => {
         console.log(response.status);
         throw new Error(`Error peeking into room. Status: ${response.status} `);
       } else {
-        const playerData: PlayerData[] = await response.json();
-        setPlayerData(playerData);
+        const roomData: PlayerData[] = await response.json();
+        setPlayerData(roomData);
       }
     } catch (error) {
       throw new Error("Network error peeking into room");
@@ -57,12 +59,18 @@ const RoomSettings = () => {
       if (!response.ok) {
         throw new Error(`Room join request failed status: ${response.status}`);
       }
-      const playerData: PlayerData[] = await response.json();
+      const joinResponse: PlayerData[] = await response.json();
       RoomSettingsActions.updateRoomCode(requestedRoomCode);
-      setPlayerData(playerData);
+      console.log(joinResponse);
+      console.log("me when seperator");
+      console.log(joinResponse);
+      setPlayerData(joinResponse);
+      refreshSseEventStream.emit();
       setRoomCodeInput(requestedRoomCode);
-    } catch (erorr) {
-      throw new Error("Network error while attempting to join a room");
+    } catch (error) {
+      throw new Error(
+        `Network error while attempting to join a room: ${error}`,
+      );
     } finally {
     }
   };
@@ -70,7 +78,7 @@ const RoomSettings = () => {
   const tryRoomCode = (roomCodeCapture: string) => {
     setRoomCodeInput(roomCodeCapture);
     if (roomCodeCapture.length == 4 && roomCodeCapture != roomCode) {
-      roomPeek(roomCodeCapture);
+      roomPeek(roomCodeCapture.toUpperCase());
     }
     // else if (roomCodeCapture.length == 3) {
     //   setPlayerData([]);
@@ -81,7 +89,7 @@ const RoomSettings = () => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const submittedRoomCode = formData.get("room_code") as string;
-    handleRoomJoinRequest(submittedRoomCode);
+    handleRoomJoinRequest(submittedRoomCode.toUpperCase());
   };
   return (
     <>

@@ -3,7 +3,7 @@ import PlayerResults from "./player-results";
 
 interface RoundData {
   real_location: Coordinates;
-  player_results: Record<string, PlayerResults>;
+  player_results: PlayerResults[];
 }
 
 export default RoundData;

@@ -186,10 +186,10 @@ export const MapOverlay = memo(function MapOverlay({
                   if (isCurrentUser) return null;
 
                   return (
-                    <Fragment key={entry.color}>
+                    <Fragment key={entry.player.color}>
                       <Marker
                         position={entry.guess_location}
-                        icon={createPlayerIcon(entry.color)}
+                        icon={createPlayerIcon(entry.player.color)}
                       />
 
                       <Polyline
@@ -199,7 +199,7 @@ export const MapOverlay = memo(function MapOverlay({
                           100,
                         )}
                         options={{
-                          strokeColor: entry.color,
+                          strokeColor: entry.player.color,
                           strokeOpacity: 0,
                           icons: [
                             {
@@ -207,7 +207,7 @@ export const MapOverlay = memo(function MapOverlay({
                                 path: "M 0,0 0,-2",
                                 strokeOpacity: 1,
                                 scale: 3,
-                                strokeColor: entry.color,
+                                strokeColor: entry.player.color,
                               },
                               offset: "12px",
                               repeat: "20px",
