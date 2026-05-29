@@ -32,7 +32,7 @@ impl Id {
         Cookie::build((ID_COOKIE_NAME, self.0.clone()))
             .path("/")
             .http_only(true)
-            .secure(true)
+            // .secure(true)
             .build()
     }
 }
