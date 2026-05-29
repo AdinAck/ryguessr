@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 use crate::{
     Handle, Room, RoomEvent,
     colors::PlayerColor,
-    event::PlayerData,
+    event::{PlayerData, RoundStartData},
     geo::{Location, engine::LocationEngine},
     handle,
     name_gen::NameGenerator,
@@ -80,21 +80,23 @@ impl Context {
         &self,
         client_id: &handle::Id,
         new_room_id: &room::Id,
-    ) -> Result<Vec<PlayerData>, StatusCode> {
+    ) -> Result<(Vec<PlayerData>, RoundStartData), StatusCode> {
         let mut model = self.model.write().await;
         model.move_client_to_room(client_id, new_room_id)?;
 
-        let players = model
+        let room = model
             .rooms
             .get(new_room_id)
-            .expect("room exists after a successful move")
-            .players();
+            .expect("room exists after a successful move");
+
+        let players = room.players();
+        let round_data = room.get_round_data();
 
         if model.rooms.get(new_room_id).is_some_and(Room::is_idle) {
             self.start_cleanup(&mut model, new_room_id.clone());
         }
 
-        Ok(players)
+        Ok((players, round_data))
     }
 
     /// Create a new room with the given user as the first member. Arms the

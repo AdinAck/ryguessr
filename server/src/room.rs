@@ -164,6 +164,13 @@ impl Room {
         self.members.values().all(|m| m.ready_next_round)
     }
 
+    pub fn get_round_data(&self) -> RoundStartData {
+        RoundStartData {
+            pano_id: self.location.pano_id.clone(),
+            round: self.round,
+        }
+    }
+
     /// Transition to next round
     pub fn start_next_round(&mut self, new_location: Location) {
         let pano_id = new_location.pano_id.clone();
