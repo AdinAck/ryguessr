@@ -13,24 +13,34 @@ use crate::{
     handle, score,
 };
 
-/// The length of a [`Room::Id`] identifier string.
+/// The length of a [`Id`] identifier string.
 const ROOM_ID_LENGTH: usize = 4;
 
 /// Used when [`DistinctColors`] is saturated and can't produce a fresh
 /// distinct color. (Rare)
 const FALLBACK_COLOR: Srgb8 = srgb!("#808080");
 
+pub enum State {
+    /// Rounds are currently being played
+    Active {
+        /// The number of rounds played
+        round: u32,
+        /// The room's current [`Location`].
+        location: Location,
+    },
+    /// Rounds are paused, members are joining
+    Inactive,
+}
+
 /// A room exists in a particular [`Location`], housing multiple members who are all
 /// at the room's location. A room's [`Config`] specifies the rules of how the room
 /// behaves, or the constraints applied to / advantages given to certain members.
 pub struct Room {
+    /// The state of the room ([`State::Active`] or [`State::Inactive`])
+    pub state: State,
     /// A map corresponding the identifiers of each member to their local
     /// [attributes](MemberAttributes).
     pub members: HashMap<handle::Id, MemberAttributes>,
-    /// The number of rounds played
-    pub round: usize,
-    /// The room's current [`Location`].
-    pub location: Location,
     /// A generator for distinct colors to assign to members of the room for frontend display purposes. The same color will be assigned to the same member across rounds, but different members will have different colors.
     pub colors: DistinctColors,
     /// The room's current [configuration](Config).
@@ -40,10 +50,9 @@ pub struct Room {
     /// The event sender handle for the room, used to broadcast events to all members of the room.
     pub event_tx: broadcast::Sender<RoomEvent>,
     /// Number of live SSE connections subscribed to this room.
-    active_connections: usize,
+    active_connections: u32,
     /// Handle to a cleanup task scheduled while the room is idle.
     cleanup_handle: Option<JoinHandle<()>>,
-    // TODO: location history for the round
 }
 
 impl Room {
@@ -67,9 +76,8 @@ impl Room {
         };
         let members = HashMap::from([(client_id, MemberAttributes::new(username, color))]);
         Self {
+            state: State::Active { round: 0, location },
             members,
-            round: 0,
-            location,
             colors,
             config: Config {},
             event_tx,
@@ -171,15 +179,19 @@ impl Room {
         }
     }
 
+    fn reset_ready_status(&mut self) {
+        for member in self.members.values_mut() {
+            member.ready_next_round = false;
+        }
+    }
+
     /// Transition to next round
     pub fn start_next_round(&mut self, new_location: Location) {
         let pano_id = new_location.pano_id.clone();
         self.location = new_location;
 
         // Reset ready status for next round
-        for member in self.members.values_mut() {
-            member.ready_next_round = false;
-        }
+        self.reset_ready_status();
 
         self.round += 1;
         let round = self.round;
