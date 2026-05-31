@@ -12,8 +12,8 @@ type Username = String;
 pub enum RoomEvent {
     RoundStart(RoundStartData),
     RoundEnd(RoundEndData),
-    PlayerJoined(PlayerData),
-    PlayerLeft {
+    PlayerJoin(PlayerData),
+    PlayerLeave {
         username: Username,
     },
     ChangeName {
@@ -24,6 +24,7 @@ pub enum RoomEvent {
         username: Username,
         color: Srgb8,
     },
+    Deactivate,
 }
 
 impl TryFrom<RoomEvent> for sse::Event {

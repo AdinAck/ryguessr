@@ -114,6 +114,13 @@ impl Room {
         }
     }
 
+    /// Deactivate the room and notify all members
+    pub fn deactivate(&mut self) {
+        self.state = State::Inactive;
+
+        let _ = self.event_tx.send(RoomEvent::Deactivate);
+    }
+
     /// Add a member to the room. If `color` is not provided, a new distinct color is generated.
     pub fn add_member(
         &mut self,
@@ -134,7 +141,7 @@ impl Room {
 
         let new_member = MemberAttributes::new(username.clone(), color);
 
-        let event = RoomEvent::PlayerJoined(PlayerData::from(&new_member));
+        let event = RoomEvent::PlayerJoin(PlayerData::from(&new_member));
 
         self.members.insert(client_id.clone(), new_member);
 
@@ -155,7 +162,7 @@ impl Room {
         self.colors.remove_occupied(member.color.srgb);
 
         // Broadcast leave event
-        let _ = self.event_tx.send(RoomEvent::PlayerLeft {
+        let _ = self.event_tx.send(RoomEvent::PlayerLeave {
             username: member.username,
         });
     }
