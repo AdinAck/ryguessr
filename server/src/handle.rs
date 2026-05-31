@@ -3,7 +3,7 @@ use axum_extra::extract::{CookieJar, cookie::Cookie};
 use derive_more::{AsRef, Deref};
 use uuid::Uuid;
 
-use crate::{colors::PlayerColor, room};
+use crate::{AppError, colors::PlayerColor, room};
 
 /// A handle to a particular client.
 pub struct Handle {
@@ -45,7 +45,7 @@ impl TryFrom<&str> for Id {
 }
 
 impl<S: Send + Sync> FromRequestParts<S> for Id {
-    type Rejection = StatusCode;
+    type Rejection = AppError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
@@ -53,10 +53,10 @@ impl<S: Send + Sync> FromRequestParts<S> for Id {
     ) -> Result<Self, Self::Rejection> {
         let jar = CookieJar::from_request_parts(parts, state)
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("cookie jar extraction: {e}")))?;
 
         jar.get(ID_COOKIE_NAME)
             .map(|c| Id(c.value().to_string()))
-            .ok_or(StatusCode::UNAUTHORIZED)
+            .ok_or(AppError::UnknownClient)
     }
 }

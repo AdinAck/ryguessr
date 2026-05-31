@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tokio::{sync::broadcast, task::JoinHandle};
 
 use crate::{
-    Coordinates, RoomEvent,
+    AppError, Coordinates, RoomEvent,
     colors::{DistinctColors, PlayerColor},
     event::{PlayerData, PlayerResult, RoundEndData, RoundStartData},
     geo::Location,
@@ -46,7 +46,7 @@ pub struct Room {
     /// The room's current [configuration](Config).
     // Currently unused, but will be used to implement different game modes and constraints in the future.
     #[allow(dead_code)]
-    config: Config,
+    pub config: Config,
     /// The event sender handle for the room, used to broadcast events to all members of the room.
     pub event_tx: broadcast::Sender<RoomEvent>,
     /// Number of live SSE connections subscribed to this room.
@@ -163,55 +163,65 @@ impl Room {
     /// Handle a ready submission from a member of the room.
     /// Returns true if everyone is ready.
     pub fn submit_ready(&mut self, client_id: &handle::Id) -> bool {
-        let Some(member) = self.members.get_mut(client_id) else {
-            return false;
-        };
+        let member = self
+            .members
+            .get_mut(client_id)
+            .expect("client routed here via client_room_mut must be a room member");
 
         member.ready_next_round = true;
 
         self.members.values().all(|m| m.ready_next_round)
     }
 
-    pub fn get_round_data(&self) -> RoundStartData {
-        RoundStartData {
-            pano_id: self.location.pano_id.clone(),
-            round: self.round,
-        }
-    }
+    /// Transition to next round
+    pub fn start_next_round(&mut self, new_location: Location) {
+        let pano_id = new_location.pano_id.clone();
 
-    fn reset_ready_status(&mut self) {
+        let round = match self.state {
+            State::Active { round, .. } => round + 1,
+            State::Inactive => 1,
+        };
+
+        self.state = State::Active {
+            round,
+            location: new_location,
+        };
+
+        let _ = self
+            .event_tx
+            .send(RoomEvent::RoundStart(RoundStartData { pano_id, round }));
+
+        // Reset ready status for next round
         for member in self.members.values_mut() {
             member.ready_next_round = false;
         }
     }
 
-    /// Transition to next round
-    pub fn start_next_round(&mut self, new_location: Location) {
-        let pano_id = new_location.pano_id.clone();
-        self.location = new_location;
-
-        // Reset ready status for next round
-        self.reset_ready_status();
-
-        self.round += 1;
-        let round = self.round;
-        let _ = self
-            .event_tx
-            .send(RoomEvent::RoundStart(RoundStartData { pano_id, round }));
-    }
-
     /// Handle a guess from a member of the room. This will update the member's score and broadcast
     /// if everyone has submitted a guess for the current round.
-    pub fn submit_guess(&mut self, client_id: &handle::Id, guess: Coordinates) {
-        let Some(member) = self.members.get_mut(client_id) else {
-            return;
+    pub fn submit_guess(
+        &mut self,
+        client_id: &handle::Id,
+        guess: Coordinates,
+    ) -> Result<(), AppError> {
+        let State::Active { location, .. } = &self.state else {
+            return Err(AppError::RoomInactive);
         };
+        let real_location = location.coordinates.clone();
 
-        let distance = score::haversine_distance(&guess, &self.location.coordinates);
-        let points = score::calculate_score(distance);
+        let distance = score::haversine_distance(&guess, &real_location);
+        let round_score = score::calculate_score(distance) as u32;
 
-        member.score += points as u32;
-        member.guess = Some(guess);
+        let member = self
+            .members
+            .get_mut(client_id)
+            .expect("client routed here via client_room_mut must be a room member");
+        member.score += round_score;
+        member.guess = Some(RoundGuess {
+            coordinates: guess,
+            distance,
+            round_score,
+        });
 
         // Check if everyone has guessed
         let all_guessed = self.members.values().all(|m| m.guess.is_some());
@@ -220,32 +230,41 @@ impl Room {
                 .members
                 .values()
                 .map(|m| {
-                    let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
-                    let distance =
-                        score::haversine_distance(&guess_location, &self.location.coordinates);
-                    let round_score = score::calculate_score(distance) as u32;
+                    let g = m
+                        .guess
+                        .as_ref()
+                        .expect("all_guessed implies every member has a guess");
                     PlayerResult {
                         player: PlayerData::from(m),
-                        round_score,
-                        distance,
-                        guess_location,
+                        round_score: g.round_score,
+                        distance: g.distance,
+                        guess_location: g.coordinates.clone(),
                     }
                 })
                 .collect();
 
-            let event = RoomEvent::RoundEnd(RoundEndData {
-                real_location: self.location.coordinates.clone(),
-                player_results,
-            });
             // Broadcast round end event to all members of the room.
-            let _ = self.event_tx.send(event);
+            let _ = self.event_tx.send(RoomEvent::RoundEnd(RoundEndData {
+                real_location,
+                player_results,
+            }));
 
             // Reset guesses for next round
             for member in self.members.values_mut() {
                 member.guess = None;
             }
         }
+
+        Ok(())
     }
+}
+
+/// A player's guess for the current round, plus the derived distance and
+/// round-score so the round-end recap doesn't recompute them.
+pub struct RoundGuess {
+    pub coordinates: Coordinates,
+    pub distance: f64,
+    pub round_score: u32,
 }
 
 /// The attributes of a member of a [`Room`].
@@ -255,7 +274,7 @@ pub struct MemberAttributes {
     /// The current score of the member in the [`Room`].
     pub score: u32,
     /// The member's most recent guess for the current round, if they have submitted one.
-    pub guess: Option<Coordinates>,
+    pub guess: Option<RoundGuess>,
     /// The color assigned to the member for frontend display purposes.
     pub color: PlayerColor,
     /// Whether the member is ready to move on to the next round.

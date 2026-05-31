@@ -1,9 +1,8 @@
-use axum::http::StatusCode;
 use axum::{Json, extract::State};
 use axum_extra::extract::CookieJar;
 use colors::Srgb8;
 
-use crate::{Context, handle, room};
+use crate::{AppError, Context, handle, room};
 
 #[derive(serde::Deserialize, Default)]
 pub struct InitRequest {
@@ -23,11 +22,12 @@ pub async fn init_handler(
     State(context): State<Context>,
     jar: CookieJar,
     Json(request): Json<InitRequest>,
-) -> Result<(CookieJar, Json<InitResponse>), StatusCode> {
+) -> Result<(CookieJar, Json<InitResponse>), AppError> {
     let (jar, client_id) = match jar.get(handle::ID_COOKIE_NAME) {
         Some(c) => {
-            let client_id =
-                handle::Id::try_from(c.value()).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let client_id = handle::Id::try_from(c.value()).map_err(|e| {
+                AppError::Internal(anyhow::anyhow!("invalid client id cookie: {e}"))
+            })?;
             (jar, client_id)
         }
         None => {
@@ -36,11 +36,7 @@ pub async fn init_handler(
         }
     };
 
-    let location = context
-        .engine
-        .get_random_location()
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let location = context.engine.get_random_location().await?;
 
     let (room_id, username, color) = context
         .create_room(location, client_id.clone(), request.username, request.color)

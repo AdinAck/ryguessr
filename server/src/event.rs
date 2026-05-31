@@ -37,7 +37,7 @@ impl TryFrom<RoomEvent> for sse::Event {
 #[derive(Debug, Clone, Serialize)]
 pub struct RoundStartData {
     pub pano_id: PanoId,
-    pub round: usize,
+    pub round: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]

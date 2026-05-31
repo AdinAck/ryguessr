@@ -1,6 +1,5 @@
 use std::pin::Pin;
 
-use axum::http::StatusCode;
 use axum::{
     extract::State,
     response::{Sse, sse},
@@ -9,7 +8,7 @@ use futures_util::{Stream, StreamExt};
 use tokio_stream::wrappers::BroadcastStream;
 use tracing::debug;
 
-use crate::{Context, RoomEvent, event::RoundStartData, handle, room};
+use crate::{AppError, Context, RoomEvent, event::RoundStartData, handle, room};
 
 #[pin_project::pin_project(PinnedDrop)]
 pub struct EventStream<S> {
@@ -49,19 +48,18 @@ impl<S> PinnedDrop for EventStream<S> {
 pub async fn sse_event_handler(
     State(context): State<Context>,
     client_id: handle::Id,
-) -> Result<Sse<impl Stream<Item = Result<sse::Event, axum::Error>>>, StatusCode> {
+) -> Result<Sse<impl Stream<Item = Result<sse::Event, axum::Error>>>, AppError> {
     let mut model = context.model.write().await;
     let handle = model
         .clients
         .get(&client_id)
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .ok_or(AppError::UnknownClient)?;
     let room_id = handle.room.clone();
-    let room = model.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)?;
+    let room = model
+        .rooms
+        .get_mut(&room_id)
+        .ok_or(AppError::RoomNotFound)?;
     room.connect();
-
-    let round = room.round;
-    let pano_id = room.location.pano_id.clone();
-    let initial_event = RoomEvent::RoundStart(RoundStartData { pano_id, round });
 
     let rx = room.event_tx.subscribe();
 
@@ -85,7 +83,13 @@ pub async fn sse_event_handler(
         room_id,
     };
 
-    room.event_tx.send(initial_event).unwrap();
+    if let room::State::Active { round, location } = &room.state {
+        let initial_event = RoomEvent::RoundStart(RoundStartData {
+            pano_id: location.pano_id.clone(),
+            round: *round,
+        });
+        let _ = room.event_tx.send(initial_event);
+    }
 
     Ok(Sse::new(event_stream))
 }

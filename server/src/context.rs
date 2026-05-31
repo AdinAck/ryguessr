@@ -1,11 +1,10 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use axum::http::StatusCode;
 use colors::Srgb8;
 use tokio::sync::RwLock;
 
 use crate::{
-    Handle, Room, RoomEvent,
+    AppError, Handle, Room, RoomEvent,
     colors::PlayerColor,
     event::PlayerData,
     geo::{Location, engine::LocationEngine},
@@ -80,7 +79,7 @@ impl Context {
         &self,
         client_id: &handle::Id,
         new_room_id: &room::Id,
-    ) -> Result<Vec<PlayerData>, StatusCode> {
+    ) -> Result<Vec<PlayerData>, AppError> {
         let mut model = self.model.write().await;
         model.move_client_to_room(client_id, new_room_id)?;
 
@@ -122,10 +121,7 @@ impl Context {
         (room_id, username, color)
     }
 
-    pub async fn get_room_players(
-        &self,
-        room_id: &room::Id,
-    ) -> Result<Vec<PlayerData>, StatusCode> {
+    pub async fn get_room_players(&self, room_id: &room::Id) -> Result<Vec<PlayerData>, AppError> {
         let model = self.model.read().await;
         Ok(model.room(room_id)?.players())
     }
@@ -166,24 +162,24 @@ impl Model {
         &mut self,
         client_id: &handle::Id,
         new_username: String,
-    ) -> Result<(), StatusCode> {
+    ) -> Result<(), AppError> {
         // Check for name collision across all existing clients.
         if self.clients.values().any(|c| c.username == new_username) {
-            return Err(StatusCode::CONFLICT);
+            return Err(AppError::UsernameTaken);
         }
 
         // Update the client's name in the model.
         let handle = self
             .clients
             .get_mut(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?;
+            .ok_or(AppError::UnknownClient)?;
         handle.username = new_username.clone();
 
         // Update the client's name in their current room.
         let room = self
             .rooms
             .get_mut(&handle.room)
-            .ok_or(StatusCode::NOT_FOUND)?;
+            .ok_or(AppError::RoomNotFound)?;
         if let Some(member) = room.members.get_mut(client_id) {
             let old_username = member.username.clone();
             member.username = new_username.clone();
@@ -198,15 +194,12 @@ impl Model {
         Ok(())
     }
 
-    pub fn set_color(
-        &mut self,
-        client_id: &handle::Id,
-        new_color: Srgb8,
-    ) -> Result<(), StatusCode> {
+    pub fn set_color(&mut self, client_id: &handle::Id, new_color: Srgb8) -> Result<(), AppError> {
         let handle = self
             .clients
             .get_mut(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?;
+            .ok_or(AppError::UnknownClient)?;
+
         handle.color = PlayerColor {
             srgb: new_color,
             custom: true,
@@ -216,7 +209,7 @@ impl Model {
         let room = self
             .rooms
             .get_mut(&handle.room)
-            .ok_or(StatusCode::NOT_FOUND)?;
+            .ok_or(AppError::RoomNotFound)?;
         if let Some(member) = room.members.get_mut(client_id) {
             // Free the prior color so a future distinct pick can reuse it,
             // then register the new custom pick so picks stay clear of it.
@@ -234,34 +227,31 @@ impl Model {
         Ok(())
     }
 
-    pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, StatusCode> {
+    pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, AppError> {
         let room_id = self
             .clients
             .get(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?
+            .ok_or(AppError::UnknownClient)?
             .room
             .clone();
 
         self.room_mut(&room_id)
     }
 
-    pub fn room(&self, room_id: &room::Id) -> Result<&Room, StatusCode> {
-        self.rooms.get(room_id).ok_or(StatusCode::NOT_FOUND)
+    pub fn room(&self, room_id: &room::Id) -> Result<&Room, AppError> {
+        self.rooms.get(room_id).ok_or(AppError::RoomNotFound)
     }
 
-    pub fn room_mut(&mut self, room_id: &room::Id) -> Result<&mut Room, StatusCode> {
-        self.rooms.get_mut(room_id).ok_or(StatusCode::NOT_FOUND)
+    pub fn room_mut(&mut self, room_id: &room::Id) -> Result<&mut Room, AppError> {
+        self.rooms.get_mut(room_id).ok_or(AppError::RoomNotFound)
     }
 
     pub fn move_client_to_room(
         &mut self,
         client_id: &handle::Id,
         new_room_id: &room::Id,
-    ) -> Result<(), StatusCode> {
-        let handle = self
-            .clients
-            .get(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?;
+    ) -> Result<(), AppError> {
+        let handle = self.clients.get(client_id).ok_or(AppError::UnknownClient)?;
 
         if &handle.room == new_room_id {
             return Ok(());
@@ -269,7 +259,7 @@ impl Model {
 
         // Validate new room exists before making any changes
         if !self.rooms.contains_key(new_room_id) {
-            return Err(StatusCode::NOT_FOUND);
+            return Err(AppError::RoomNotFound);
         }
 
         let username = handle.username.clone();
