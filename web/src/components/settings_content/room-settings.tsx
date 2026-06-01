@@ -41,7 +41,7 @@ const RoomSettings = () => {
         setPlayerData(roomData);
       }
     } catch (error) {
-      throw new Error("Network error peeking into room");
+      throw new Error(`Network error peeking into room: ${error}`);
     } finally {
     }
   };

@@ -31,7 +31,7 @@ export const GameView = () => {
   const score_data = useMemo(() => {
     if (roundData) {
       const score_data: ScoreData = { player_scores: [] } as ScoreData;
-      for (const [name, entry] of Object.entries(roundData.player_results)) {
+      for (const entry of Object.values(roundData.player_results)) {
         score_data.player_scores.push({
           name: entry.player.username,
           last_score: entry.round_score,
@@ -43,10 +43,6 @@ export const GameView = () => {
     }
     return null;
   }, [roundData]);
-
-  useSignal(refreshSseEventStream, () => {
-    SSEConnect();
-  });
 
   const SSEConnect = useCallback(() => {
     if (es.current) {
@@ -82,6 +78,10 @@ export const GameView = () => {
       setRoundData(round_data);
     });
   }, []);
+
+  useSignal(refreshSseEventStream, () => {
+    SSEConnect();
+  });
 
   useEffect(() => {
     SSEConnect();
