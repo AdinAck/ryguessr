@@ -52,7 +52,7 @@ pub async fn init_handler(
             api_key: context.api_key.to_string(),
             room_id,
             username,
-            color,
+            color: color.srgb,
         }),
     ))
 }

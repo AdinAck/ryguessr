@@ -1,10 +1,9 @@
 use axum::{extract::FromRequestParts, http::StatusCode};
 use axum_extra::extract::{CookieJar, cookie::Cookie};
-use colors::Srgb8;
 use derive_more::{AsRef, Deref};
 use uuid::Uuid;
 
-use crate::room;
+use crate::{colors::PlayerColor, room};
 
 /// A handle to a particular client.
 pub struct Handle {
@@ -13,7 +12,7 @@ pub struct Handle {
     /// The chosen username of the associated client.
     pub username: String,
     /// The color assigned to the client, persisted across rooms.
-    pub color: Srgb8,
+    pub color: PlayerColor,
 }
 
 /// The unique identifier for a [`Handle`].

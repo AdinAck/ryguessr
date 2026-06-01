@@ -107,7 +107,7 @@ impl Context {
         client_id: handle::Id,
         requested_username: Option<String>,
         color_override: Option<Srgb8>,
-    ) -> (room::Id, String, Srgb8) {
+    ) -> (room::Id, String, PlayerColor) {
         let mut model = self.model.write().await;
         let username = requested_username
             .filter(|n| !n.is_empty())
@@ -207,7 +207,10 @@ impl Model {
             .clients
             .get_mut(client_id)
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.color = new_color;
+        handle.color = PlayerColor {
+            srgb: new_color,
+            custom: true,
+        };
 
         // Update the member's color in their current room
         let room = self
@@ -250,7 +253,7 @@ impl Model {
         self.rooms.get_mut(room_id).ok_or(StatusCode::NOT_FOUND)
     }
 
-    pub(crate) fn move_client_to_room(
+    pub fn move_client_to_room(
         &mut self,
         client_id: &handle::Id,
         new_room_id: &room::Id,
@@ -270,7 +273,11 @@ impl Model {
         }
 
         let username = handle.username.clone();
-        let color = handle.color;
+        let color_override = if handle.color.custom {
+            Some(handle.color.srgb)
+        } else {
+            None
+        };
         let old_room_id = handle.room.clone();
 
         self.remove_from_room(client_id, &old_room_id);
@@ -278,14 +285,14 @@ impl Model {
         self.rooms
             .get_mut(new_room_id)
             .unwrap()
-            .add_member(client_id, username, Some(color));
+            .add_member(client_id, username, color_override);
 
         self.clients.get_mut(client_id).unwrap().room = new_room_id.clone();
 
         Ok(())
     }
 
-    pub(crate) fn remove_client(&mut self, client_id: &handle::Id) {
+    pub fn remove_client(&mut self, client_id: &handle::Id) {
         let Some(handle) = self.clients.remove(client_id) else {
             return;
         };
@@ -294,13 +301,13 @@ impl Model {
 
     /// Insert a freshly created room with the given user as the first member.
     /// Returns the new room id and the color assigned to the member.
-    pub(crate) fn insert_new_room(
+    pub fn insert_new_room(
         &mut self,
         location: Location,
         client_id: handle::Id,
         username: String,
         color_override: Option<Srgb8>,
-    ) -> (room::Id, Srgb8) {
+    ) -> (room::Id, PlayerColor) {
         let room_id = {
             let mut id = room::Id::random();
             while self.rooms.contains_key(&id) {
@@ -317,7 +324,7 @@ impl Model {
             username.clone(),
             color_override,
         );
-        let color = room.members.get(&client_id).unwrap().color.srgb;
+        let color = room.members.get(&client_id).unwrap().color;
 
         self.rooms.insert(room_id.clone(), room);
         self.clients.insert(
