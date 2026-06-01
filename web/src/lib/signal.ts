@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 export function createSignal() {
   const listeners = new Set<() => void>();
@@ -16,8 +16,14 @@ export function useSignal(
   handler: () => void,
 ) {
   const ref = useRef(handler);
-  ref.current = handler;
-  useEffect(() => signal.subscribe(() => ref.current()), [signal]);
+
+  useLayoutEffect(() => {
+    ref.current = handler;
+  });
+
+  useEffect(() => {
+    return signal.subscribe(() => ref.current());
+  }, [signal]);
 }
 
 export const refreshSseEventStream = createSignal();
