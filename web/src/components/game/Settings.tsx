@@ -23,7 +23,7 @@ const Settings = () => {
   const handleColorRequest = (color: string) => {
     playerActions.saveCustomColor(color);
     try {
-      const response = fetch("/api/color", {
+      fetch("/api/color", {
         method: "POST",
         body: JSON.stringify(color),
         headers: {

@@ -1,5 +1,4 @@
 "use client";
-import { useCookies } from "react-cookie";
 import { useLoadScript } from "@react-google-maps/api";
 import { useEffect, useState, useRef } from "react";
 import { GameView } from "../game/GameView";

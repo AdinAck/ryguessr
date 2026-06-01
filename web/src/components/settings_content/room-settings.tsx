@@ -2,7 +2,7 @@
 import { Separator } from "../ui/separator";
 import { Field } from "../ui/field";
 import { Button } from "../ui/button";
-import { useState, memo } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 
 // Zustand useRoomSettings

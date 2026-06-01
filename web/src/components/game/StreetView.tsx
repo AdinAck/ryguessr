@@ -1,17 +1,12 @@
 "use client";
-import {
-  GoogleMap,
-  StreetViewPanorama,
-  StreetViewPanoramaProps,
-  useLoadScript,
-} from "@react-google-maps/api";
+import { GoogleMap, StreetViewPanorama } from "@react-google-maps/api";
 import { memo, useMemo } from "react";
 import { StaticStreetview } from "./StaticStreetview";
 
 // Zustand
 import { useStreetviewSettings } from "@/store/useSettingsStore";
 
-const Streetview = memo(({ panoId }: { panoId?: string }) => {
+const Streetview = memo(function Streetview({ panoId }: { panoId?: string }) {
   const {
     panningGesturesEnabled,
     streetNamesEnabled,
