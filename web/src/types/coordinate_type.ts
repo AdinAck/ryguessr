@@ -1,6 +1,6 @@
 interface Coordinates {
-  lat: number,
-  lng: number,
-};
+  lat: number;
+  lng: number;
+}
 
 export default Coordinates;

@@ -18,7 +18,7 @@ function toDeg(rad: number): number {
 export default function interpolateGreatCircle(
   start: Coordinate,
   end: Coordinate,
-  n: number
+  n: number,
 ): Coordinate[] {
   const lat1 = toRad(start.lat);
   const lng1 = toRad(start.lng);
@@ -31,8 +31,8 @@ export default function interpolateGreatCircle(
     Math.asin(
       Math.sqrt(
         Math.sin((lat2 - lat1) / 2) ** 2 +
-        Math.cos(lat1) * Math.cos(lat2) * Math.sin((lng2 - lng1) / 2) ** 2
-      )
+          Math.cos(lat1) * Math.cos(lat2) * Math.sin((lng2 - lng1) / 2) ** 2,
+      ),
     );
 
   const points: Coordinate[] = [];
@@ -50,8 +50,10 @@ export default function interpolateGreatCircle(
     const a = Math.sin((1 - f) * d) / Math.sin(d);
     const b = Math.sin(f * d) / Math.sin(d);
 
-    const x = a * Math.cos(lat1) * Math.cos(lng1) + b * Math.cos(lat2) * Math.cos(lng2);
-    const y = a * Math.cos(lat1) * Math.sin(lng1) + b * Math.cos(lat2) * Math.sin(lng2);
+    const x =
+      a * Math.cos(lat1) * Math.cos(lng1) + b * Math.cos(lat2) * Math.cos(lng2);
+    const y =
+      a * Math.cos(lat1) * Math.sin(lng1) + b * Math.cos(lat2) * Math.sin(lng2);
     const z = a * Math.sin(lat1) + b * Math.sin(lat2);
 
     const lat = Math.atan2(z, Math.sqrt(x ** 2 + y ** 2));

@@ -1,7 +1,7 @@
 type UserInit = {
-  room_id: string,
-  username: string,
-  color: string,
-}
+  room_id: string;
+  username: string;
+  color: string;
+};
 
 export default UserInit;

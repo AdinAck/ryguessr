@@ -1,55 +1,62 @@
 import { create } from "zustand";
-import { persist } from 'zustand/middleware'
+import { persist } from "zustand/middleware";
 
 type RoomState = {
-  roomCode: string,
-}
+  roomCode: string;
+};
 
 type RoomStateAction = {
-  updateRoomCode: (roomCode: RoomState['roomCode']) => void,
-}
+  updateRoomCode: (roomCode: RoomState["roomCode"]) => void;
+};
 
 type StreetviewState = {
-  panningGesturesEnabled: boolean,
-  streetNamesEnabled: boolean,
-  zoomGesturesEnabled: boolean,
-  userNavigationEnabled: boolean
-}
+  panningGesturesEnabled: boolean;
+  streetNamesEnabled: boolean;
+  zoomGesturesEnabled: boolean;
+  userNavigationEnabled: boolean;
+};
 
 type StreetviewStateAction = {
-  setPanningGesturesEnabled: (panningGesturesEnabled: StreetviewState['panningGesturesEnabled']) => void,
-  setStreetNamesEnabled: (streetNamesEnabled: StreetviewState['streetNamesEnabled']) => void,
-  setZoomGesturesEnabled: (zoomGesturesEnabled: StreetviewState['zoomGesturesEnabled']) => void,
-  setUserNavigationEnabled: (userNaviagtionEnabled: StreetviewState['userNavigationEnabled']) => void,
-}
+  setPanningGesturesEnabled: (
+    panningGesturesEnabled: StreetviewState["panningGesturesEnabled"],
+  ) => void;
+  setStreetNamesEnabled: (
+    streetNamesEnabled: StreetviewState["streetNamesEnabled"],
+  ) => void;
+  setZoomGesturesEnabled: (
+    zoomGesturesEnabled: StreetviewState["zoomGesturesEnabled"],
+  ) => void;
+  setUserNavigationEnabled: (
+    userNaviagtionEnabled: StreetviewState["userNavigationEnabled"],
+  ) => void;
+};
 
 type UserState = {
   savedUsername?: string;
   savedIconColor?: string;
-}
+};
 
 type GameSession = {
   activeUsername: string;
   activeIconColor: string;
-}
+};
 
 export const useRoomSettings = create<RoomState>()(() => ({
   roomCode: "",
-}))
+}));
 
 export const RoomSettingsActions: RoomStateAction = {
-  updateRoomCode: (roomCode: string) => useRoomSettings.setState({ roomCode })
-}
+  updateRoomCode: (roomCode: string) => useRoomSettings.setState({ roomCode }),
+};
 
 export const useStreetviewSettings = create<StreetviewState>()(() => ({
   panningGesturesEnabled: true,
   streetNamesEnabled: false,
   zoomGesturesEnabled: true,
-  userNavigationEnabled: true
-}))
+  userNavigationEnabled: true,
+}));
 
 export const StreetviewStateActions: StreetviewStateAction = {
-
   setPanningGesturesEnabled: (panningGesturesEnabled: boolean) => {
     useStreetviewSettings.setState({ panningGesturesEnabled });
   },
@@ -64,10 +71,8 @@ export const StreetviewStateActions: StreetviewStateAction = {
 
   setUserNavigationEnabled: (userNavigationEnabled: boolean) => {
     useStreetviewSettings.setState({ userNavigationEnabled });
-  }
-
+  },
 };
-
 
 export const useUserSettings = create<UserState>()(
   persist(
@@ -75,8 +80,8 @@ export const useUserSettings = create<UserState>()(
       savedUsername: undefined,
       savedIconColor: undefined,
     }),
-    { name: 'player-preferences-storage' }
-  )
+    { name: "player-preferences-storage" },
+  ),
 );
 
 export const useGameSession = create<GameSession>()(() => ({
@@ -98,8 +103,7 @@ export const playerActions = {
   setSessionData: (name: string, color: string) => {
     useGameSession.setState({
       activeUsername: name,
-      activeIconColor: color
+      activeIconColor: color,
     });
-  }
+  },
 };
-

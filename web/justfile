@@ -17,6 +17,18 @@ dev:
 lint:
     npm run lint
 
+# Check types
+typecheck:
+    npx tsc --noEmit
+
+# Check formatting
+fmt-check:
+    npx prettier --check .
+
+# Apply formatting
+fmt:
+    npx prettier --write .
+
 # Rebuild on file changes
 watch:
     watchexec -w src -e ts,tsx,js,jsx,css,html -- npm run build
