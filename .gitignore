@@ -7,3 +7,6 @@
 
 # Nix build output
 result
+
+# MacOS .DS_STORE
+**/.DS_STORE

@@ -40,7 +40,7 @@ const Settings = () => {
   const handleUsernameRequest = (username: string) => {
     playerActions.saveCustomUsername(username);
     try {
-      const response = fetch("api/username", {
+      fetch("api/username", {
         method: "POST",
         body: JSON.stringify(username),
         headers: {

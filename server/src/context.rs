@@ -5,8 +5,9 @@ use colors::Srgb8;
 use tokio::sync::RwLock;
 
 use crate::{
-    Handle, Room,
+    Handle, Room, RoomEvent,
     colors::PlayerColor,
+    event::PlayerData,
     geo::{Location, engine::LocationEngine},
     handle,
     name_gen::NameGenerator,
@@ -26,6 +27,7 @@ const CLEANUP_DELAY: Duration = Duration::from_secs(60);
 pub struct Context {
     pub engine: Arc<LocationEngine>,
     pub model: SharedModel,
+    pub api_key: Arc<str>,
 }
 
 /// The in-memory state of the application. Methods on
@@ -39,10 +41,11 @@ pub struct Model {
 
 impl Context {
     /// Create an empty context.
-    pub fn new(engine: LocationEngine) -> Self {
+    pub fn new(engine: LocationEngine, google_maps_api_key: String) -> Self {
         Self {
             engine: Arc::new(engine),
             model: Arc::new(RwLock::new(Model::default())),
+            api_key: Arc::from(google_maps_api_key),
         }
     }
 
@@ -71,20 +74,28 @@ impl Context {
     }
 
     /// Move a client into an existing room. Re-arms the new room's cleanup
-    /// timer if it has no live SSE connections.
+    /// timer if it has no live SSE connections. Returns the new room's roster
+    /// so the joining client can render it without a second round trip.
     pub async fn move_client_to_room(
         &self,
         client_id: &handle::Id,
         new_room_id: &room::Id,
-    ) -> Result<(), StatusCode> {
+    ) -> Result<Vec<PlayerData>, StatusCode> {
         let mut model = self.model.write().await;
         model.move_client_to_room(client_id, new_room_id)?;
+
+        let room = model
+            .rooms
+            .get(new_room_id)
+            .expect("room exists after a successful move");
+
+        let players = room.players();
 
         if model.rooms.get(new_room_id).is_some_and(Room::is_idle) {
             self.start_cleanup(&mut model, new_room_id.clone());
         }
 
-        Ok(())
+        Ok(players)
     }
 
     /// Create a new room with the given user as the first member. Arms the
@@ -96,7 +107,7 @@ impl Context {
         client_id: handle::Id,
         requested_username: Option<String>,
         color_override: Option<Srgb8>,
-    ) -> (room::Id, String, Srgb8) {
+    ) -> (room::Id, String, PlayerColor) {
         let mut model = self.model.write().await;
         let username = requested_username
             .filter(|n| !n.is_empty())
@@ -109,6 +120,14 @@ impl Context {
         self.start_cleanup(&mut model, room_id.clone());
 
         (room_id, username, color)
+    }
+
+    pub async fn get_room_players(
+        &self,
+        room_id: &room::Id,
+    ) -> Result<Vec<PlayerData>, StatusCode> {
+        let model = self.model.read().await;
+        Ok(model.room(room_id)?.players())
     }
 
     /// Spawn a cleanup task for the given room and store its handle on the room
@@ -143,9 +162,13 @@ impl Model {
         name
     }
 
-    pub fn set_name(&mut self, client_id: &handle::Id, new_name: String) -> Result<(), StatusCode> {
+    pub fn set_name(
+        &mut self,
+        client_id: &handle::Id,
+        new_username: String,
+    ) -> Result<(), StatusCode> {
         // Check for name collision across all existing clients.
-        if self.clients.values().any(|c| c.username == new_name) {
+        if self.clients.values().any(|c| c.username == new_username) {
             return Err(StatusCode::CONFLICT);
         }
 
@@ -154,7 +177,7 @@ impl Model {
             .clients
             .get_mut(client_id)
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.username = new_name.clone();
+        handle.username = new_username.clone();
 
         // Update the client's name in their current room.
         let room = self
@@ -162,7 +185,14 @@ impl Model {
             .get_mut(&handle.room)
             .ok_or(StatusCode::NOT_FOUND)?;
         if let Some(member) = room.members.get_mut(client_id) {
-            member.username = new_name;
+            let old_username = member.username.clone();
+            member.username = new_username.clone();
+
+            // Broadcast to the room
+            let _ = room.event_tx.send(RoomEvent::ChangeName {
+                old_username,
+                new_username,
+            });
         }
 
         Ok(())
@@ -177,7 +207,10 @@ impl Model {
             .clients
             .get_mut(client_id)
             .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.color = new_color;
+        handle.color = PlayerColor {
+            srgb: new_color,
+            custom: true,
+        };
 
         // Update the member's color in their current room
         let room = self
@@ -190,6 +223,12 @@ impl Model {
             room.colors.remove_occupied(member.color.srgb);
             room.colors.push_occupied(new_color);
             member.color = PlayerColor::custom(new_color);
+
+            // Broadcast to the room
+            let _ = room.event_tx.send(RoomEvent::ChangeColor {
+                username: member.username.clone(),
+                color: new_color,
+            });
         }
 
         Ok(())
@@ -203,10 +242,18 @@ impl Model {
             .room
             .clone();
 
-        self.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)
+        self.room_mut(&room_id)
     }
 
-    pub(crate) fn move_client_to_room(
+    pub fn room(&self, room_id: &room::Id) -> Result<&Room, StatusCode> {
+        self.rooms.get(room_id).ok_or(StatusCode::NOT_FOUND)
+    }
+
+    pub fn room_mut(&mut self, room_id: &room::Id) -> Result<&mut Room, StatusCode> {
+        self.rooms.get_mut(room_id).ok_or(StatusCode::NOT_FOUND)
+    }
+
+    pub fn move_client_to_room(
         &mut self,
         client_id: &handle::Id,
         new_room_id: &room::Id,
@@ -226,7 +273,11 @@ impl Model {
         }
 
         let username = handle.username.clone();
-        let color = handle.color;
+        let color_override = if handle.color.custom {
+            Some(handle.color.srgb)
+        } else {
+            None
+        };
         let old_room_id = handle.room.clone();
 
         self.remove_from_room(client_id, &old_room_id);
@@ -234,14 +285,14 @@ impl Model {
         self.rooms
             .get_mut(new_room_id)
             .unwrap()
-            .add_member(client_id, username, Some(color));
+            .add_member(client_id, username, color_override);
 
         self.clients.get_mut(client_id).unwrap().room = new_room_id.clone();
 
         Ok(())
     }
 
-    pub(crate) fn remove_client(&mut self, client_id: &handle::Id) {
+    pub fn remove_client(&mut self, client_id: &handle::Id) {
         let Some(handle) = self.clients.remove(client_id) else {
             return;
         };
@@ -250,13 +301,13 @@ impl Model {
 
     /// Insert a freshly created room with the given user as the first member.
     /// Returns the new room id and the color assigned to the member.
-    pub(crate) fn insert_new_room(
+    pub fn insert_new_room(
         &mut self,
         location: Location,
         client_id: handle::Id,
         username: String,
         color_override: Option<Srgb8>,
-    ) -> (room::Id, Srgb8) {
+    ) -> (room::Id, PlayerColor) {
         let room_id = {
             let mut id = room::Id::random();
             while self.rooms.contains_key(&id) {
@@ -273,7 +324,7 @@ impl Model {
             username.clone(),
             color_override,
         );
-        let color = room.members.get(&client_id).unwrap().color.srgb;
+        let color = room.members.get(&client_id).unwrap().color;
 
         self.rooms.insert(room_id.clone(), room);
         self.clients.insert(
@@ -348,11 +399,8 @@ mod tests {
         let mut model = Model::default();
         insert(&mut model, "canyon");
         let (_, room_id) = insert(&mut model, "adin");
-        // Bob's room is idle (no SSE), holds Bob as a ghost member.
         model.drop_room_if_idle(&room_id);
         assert!(!model.rooms.contains_key(&room_id));
-        // Alice's ghost still exists in her own (still-idle) room; only Bob
-        // got cleaned up.
         assert_eq!(model.clients.len(), 1);
     }
 

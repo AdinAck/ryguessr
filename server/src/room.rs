@@ -8,10 +8,13 @@ use tokio::{sync::broadcast, task::JoinHandle};
 use crate::{
     Coordinates, RoomEvent,
     colors::{DistinctColors, PlayerColor},
-    event::{JoinData, PlayerResults, RoundEndData, RoundStartData},
+    event::{PlayerData, PlayerResult, RoundEndData, RoundStartData},
     geo::Location,
     handle, score,
 };
+
+/// The length of a [`Room::Id`] identifier string.
+const ROOM_ID_LENGTH: usize = 4;
 
 /// Used when [`DistinctColors`] is saturated and can't produce a fresh
 /// distinct color. (Rare)
@@ -120,16 +123,21 @@ impl Room {
                 PlayerColor::distinct(FALLBACK_COLOR)
             }),
         };
-        self.members.insert(
-            client_id.clone(),
-            MemberAttributes::new(username.clone(), color),
-        );
+
+        let new_member = MemberAttributes::new(username.clone(), color);
+
+        let event = RoomEvent::PlayerJoined(PlayerData::from(&new_member));
+
+        self.members.insert(client_id.clone(), new_member);
 
         // Broadcast join event
-        let _ = self.event_tx.send(RoomEvent::PlayerJoined(JoinData {
-            username,
-            color: color.srgb,
-        }));
+        let _ = self.event_tx.send(event);
+    }
+
+    /// Snapshot of every member as `PlayerData`, suitable for sending to a
+    /// client that needs to render the current roster.
+    pub fn players(&self) -> Vec<PlayerData> {
+        self.members.values().map(PlayerData::from).collect()
     }
 
     pub fn remove_member(&mut self, client_id: &handle::Id) {
@@ -154,6 +162,13 @@ impl Room {
         member.ready_next_round = true;
 
         self.members.values().all(|m| m.ready_next_round)
+    }
+
+    pub fn get_round_data(&self) -> RoundStartData {
+        RoundStartData {
+            pano_id: self.location.pano_id.clone(),
+            round: self.round,
+        }
     }
 
     /// Transition to next round
@@ -194,20 +209,15 @@ impl Room {
                 .values()
                 .map(|m| {
                     let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
-                    let color = m.color.srgb;
                     let distance =
                         score::haversine_distance(&guess_location, &self.location.coordinates);
-                    let last_score = score::calculate_score(distance) as u32;
-                    (
-                        m.username.clone(),
-                        PlayerResults {
-                            last_score,
-                            cum_score: m.score,
-                            distance,
-                            guess_location,
-                            color,
-                        },
-                    )
+                    let round_score = score::calculate_score(distance) as u32;
+                    PlayerResult {
+                        player: PlayerData::from(m),
+                        round_score,
+                        distance,
+                        guess_location,
+                    }
                 })
                 .collect();
 
@@ -252,9 +262,36 @@ impl MemberAttributes {
     }
 }
 
+impl From<&MemberAttributes> for PlayerData {
+    fn from(m: &MemberAttributes) -> Self {
+        Self {
+            username: m.username.clone(),
+            color: m.color.srgb,
+            score: m.score,
+        }
+    }
+}
+
 /// The unique identifier for a [`Room`].
-#[derive(Clone, AsRef, Debug, Deref, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, AsRef, Debug, Deref, Hash, PartialEq, Eq, Serialize)]
 pub struct Id(String);
+
+impl<'de> Deserialize<'de> for Id {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let len = s.chars().count();
+        if len != ROOM_ID_LENGTH {
+            return Err(serde::de::Error::invalid_length(
+                s.chars().count(),
+                &"a string of exactly 5 characters",
+            ));
+        }
+        Ok(Self(s))
+    }
+}
 
 impl Id {
     /// The characters that are allowed to be used in a random [`Id`].
@@ -263,7 +300,7 @@ impl Id {
 
     /// Generate a random 4 character human readable [`Id`] for a new [`Room`].
     pub fn random() -> Self {
-        (0..4)
+        (0..ROOM_ID_LENGTH)
             .map(|_| Self::ALLOWED_CHARS[rand::random_range(0..Self::ALLOWED_CHARS.len())] as char)
             .collect()
     }

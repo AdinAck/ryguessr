@@ -1,7 +1,7 @@
 "use client";
 import Streetview from "./StreetView";
 import { MapOverlay } from "./MapOverlay";
-import { useCallback, useState, useEffect, useMemo } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { EventSource } from "eventsource";
 import { Scoreboard } from "./Scoreboard";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,9 @@ import Coordinates from "@/types/coordinate_type";
 // Settings icon
 import { Settings2 } from "lucide-react";
 
+// SSE Refresh
+import { refreshSseEventStream, useSignal } from "@/lib/signal";
+
 export const GameView = () => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined);
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
@@ -23,24 +26,29 @@ export const GameView = () => {
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const es = useRef<EventSource | null>(null);
 
   const score_data = useMemo(() => {
     if (roundData) {
       const score_data: ScoreData = { player_scores: [] } as ScoreData;
-      for (const [name, entry] of Object.entries(roundData.player_results)) {
+      for (const entry of Object.values(roundData.player_results)) {
         score_data.player_scores.push({
-          name: name,
-          last_score: entry.last_score,
-          cum_score: entry.cum_score,
+          name: entry.player.username,
+          last_score: entry.round_score,
+          cum_score: entry.player.score,
         });
       }
+      console.log(score_data);
       return score_data;
     }
     return null;
   }, [roundData]);
 
-  useEffect(() => {
-    const es = new EventSource("/api/events", {
+  const SSEConnect = useCallback(() => {
+    if (es.current) {
+      es.current.close();
+    }
+    es.current = new EventSource("/api/events", {
       fetch: (input, init) =>
         fetch(input, {
           ...init,
@@ -50,10 +58,12 @@ export const GameView = () => {
         }),
     });
 
-    es.addEventListener("round-start", (event) => {
+    es.current.addEventListener("round-start", (event) => {
       const round_start: RoundStart = JSON.parse(event.data);
       console.log("round start");
-      console.log(round_start.round);
+      // console.log(round_start.round);
+      // PanoIDUpdateAction.updatePanoID(round_start.pano_id);
+      console.log(round_start.pano_id);
       setPanoId(round_start.pano_id);
       setRoundNumber(round_start.round);
       setHasGuessed(false);
@@ -62,17 +72,26 @@ export const GameView = () => {
       setRoundData(undefined);
     });
 
-    es.addEventListener("round-end", (event) => {
+    es.current.addEventListener("round-end", (event) => {
       const round_data = JSON.parse(event.data);
-      // console.log(event);
       console.log(round_data);
       setRoundData(round_data);
     });
-
-    return () => {
-      es.close();
-    };
   }, []);
+
+  useSignal(refreshSseEventStream, () => {
+    SSEConnect();
+  });
+
+  useEffect(() => {
+    SSEConnect();
+    return () => {
+      if (es.current) {
+        es.current?.close();
+        es.current = null;
+      }
+    };
+  }, [SSEConnect]);
 
   const handleGuess = useCallback(
     async (guess: boolean, selectedLocation: Coordinates) => {
@@ -139,26 +158,6 @@ export const GameView = () => {
           </p>
         )}
       </div>
-      {/* <div className="overflow-hidden absolute transition-all duration-300 ease-in-out top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"> */}
-      {/*   <form onSubmit={handleSubmit} className="flex flex-col gap-3"> */}
-      {/*     <Field> */}
-      {/*       <FieldLabel className="text-white" htmlFor="input-field-username">Username</FieldLabel> */}
-      {/*       <Input */}
-      {/*         id="input-field-username" */}
-      {/*         name="username" */}
-      {/*         type="text" */}
-      {/*         placeholder="Enter your username" */}
-      {/*         className="text-white" */}
-      {/*       /> */}
-      {/*     </Field> */}
-      {/*     <Field orientation="horizontal"> */}
-      {/*       <Button type="submit">Submit</Button> */}
-      {/*     </Field> */}
-      {/**/}
-      {/*   </form> */}
-      {/**/}
-      {/* </div> */}
-
       <div
         className={` bottom-5 left-5 flex flex-col gap-2 absolute z-10 aspect-video transition-all duration-300 origin-bottom-left 
           ${

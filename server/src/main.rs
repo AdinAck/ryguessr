@@ -35,10 +35,10 @@ async fn main() -> anyhow::Result<()> {
     info!("Loaded {} regions, {} total points", regions.len(), total);
 
     let engine = LocationEngine::new(
-        StreetViewClient::new(config.google_maps_api_key),
+        StreetViewClient::new(config.google_maps_api_key.clone()),
         RandomLocationSampler::new(regions)?,
     );
-    let cx = Context::new(engine);
+    let cx = Context::new(engine, config.google_maps_api_key);
 
     let app = Router::new()
         .route("/api/init", post(routes::init::init_handler))
@@ -48,6 +48,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/join", post(routes::join::join_handler))
         .route("/api/username", post(routes::username::username_handler))
         .route("/api/color", post(routes::color::color_handler))
+        .route("/api/room/{code}", get(routes::room::room_handler))
         .with_state(cx)
         .layer(TraceLayer::new_for_http())
         .fallback_service(ServeDir::new("../web/out"));

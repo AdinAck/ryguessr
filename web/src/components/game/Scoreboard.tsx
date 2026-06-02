@@ -21,7 +21,7 @@ export const Scoreboard = memo(function Scoreboard({
 
   return (
     <div className="flex flex-col gap-3 w-[50vw] h-full max-h-[40vh] overflow-y-auto pr-2">
-      {score_data.player_scores.map((score, _) => {
+      {score_data.player_scores.map((score) => {
         return (
           <div
             key={score.name}

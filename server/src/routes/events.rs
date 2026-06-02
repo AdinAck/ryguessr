@@ -7,6 +7,7 @@ use axum::{
 };
 use futures_util::{Stream, StreamExt};
 use tokio_stream::wrappers::BroadcastStream;
+use tracing::debug;
 
 use crate::{Context, RoomEvent, event::RoundStartData, handle, room};
 
@@ -65,7 +66,11 @@ pub async fn sse_event_handler(
     let rx = room.event_tx.subscribe();
 
     let broadcast_stream = BroadcastStream::new(rx).map(|result| match result {
-        Ok(event) => Ok(event.try_into()?),
+        Ok(event) => {
+            debug!("sending event: {:?}", event);
+
+            Ok(event.try_into()?)
+        }
         Err(e) => {
             tracing::error!(%e, "failed to serialize event");
 
