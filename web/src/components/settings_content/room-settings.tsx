@@ -8,7 +8,12 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 
 // Zustand useRoomSettings
-import { RoomSettingsActions, useRoomSettings } from "@/store/useSettingsStore";
+import {
+  useGameSession,
+  playerActions,
+  RoomSettingsActions,
+  useRoomSettings,
+} from "@/store/useSettingsStore";
 
 // Error Code enum
 import StatusCodes from "@/types/status-codes";
@@ -26,6 +31,8 @@ const RoomSettings = () => {
     StatusCodes.OK,
   );
   const [playerData, setPlayerData] = useState<PlayerData[]>([]);
+
+  const username = useGameSession((state) => state.activeUsername);
 
   const roomPeek = async (roomCode: string) => {
     try {
@@ -62,8 +69,13 @@ const RoomSettings = () => {
       const joinResponse: PlayerData[] = await response.json();
       RoomSettingsActions.updateRoomCode(requestedRoomCode);
       console.log(joinResponse);
-      console.log("me when seperator");
-      console.log(joinResponse);
+      for (const value of Object.values(joinResponse)) {
+        for (const [k, v] of Object.entries(value)) {
+          if (k == "username" && v.toLowerCase() == username.toLowerCase()) {
+            playerActions.saveCustomColor(value.color);
+          }
+        }
+      }
       setPlayerData(joinResponse);
       refreshSseEventStream.emit();
       setRoomCodeInput(requestedRoomCode);
@@ -97,7 +109,7 @@ const RoomSettings = () => {
       <Separator />
       <form onSubmit={(e) => handleRoomCodeSubmit(e)}>
         <Input
-          className={`not-focus:text-7xl tracking-wider border-none select-none bg-black focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-7xl placeholder:text-white focus:text-7xl font-semibold h-fit max-w-full uppercase placeholder:tracking-wider 
+          className={`!bg-transparent not-focus:text-7xl tracking-wider border-none select-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-7xl placeholder:text-white focus:text-7xl font-semibold h-fit max-w-full uppercase placeholder:tracking-wider 
         ${
           roomCodeInput == roomCode
             ? "text-green-500"
