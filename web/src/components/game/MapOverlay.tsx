@@ -235,9 +235,9 @@ export const MapOverlay = memo(function MapOverlay({
               ? undefined
               : shownScoreboard
                 ? handleContinue
-                : hasGuessed
+                : hasGuessed && roundData
                   ? handleScoreboard
-                  : selectedLocation
+                  : selectedLocation && !hasGuessed
                     ? handleMapPanOnGuess
                     : undefined
           }
