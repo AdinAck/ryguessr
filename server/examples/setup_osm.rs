@@ -1,17 +1,66 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     env,
     fs::{self, File},
     io::{BufWriter, Write},
     path::{Path, PathBuf},
+    sync::{
+        Arc, Mutex as StdMutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 use anyhow::Context;
-use futures_util::StreamExt;
-use indicatif::{ProgressBar, ProgressStyle};
+use futures_util::{StreamExt, stream};
 use osmpbf::{Element, ElementReader};
+use ratatui::{
+    Terminal, TerminalOptions, Viewport,
+    backend::CrosstermBackend,
+    layout::{Constraint, Layout},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Gauge, Paragraph, Widget},
+};
 use serde::Deserialize;
+use tokio::sync::{Mutex, mpsc};
 use tracing::info;
+
+const DOWNLOAD_CONCURRENCY: usize = 5;
+
+/// Strip HTML tags and collapse whitespace from Geofabrik region names,
+/// which sometimes include things like "Województwo dolnośląskie<br />".
+fn clean_label(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut in_tag = false;
+    let mut last_space = false;
+    for c in s.chars() {
+        if in_tag {
+            if c == '>' {
+                in_tag = false;
+                if !last_space {
+                    out.push(' ');
+                    last_space = true;
+                }
+            }
+            continue;
+        }
+        if c == '<' {
+            in_tag = true;
+            continue;
+        }
+        if c.is_whitespace() {
+            if !last_space {
+                out.push(' ');
+                last_space = true;
+            }
+        } else {
+            out.push(c);
+            last_space = false;
+        }
+    }
+    out.trim().to_string()
+}
 
 /// Highway tag values that represent drivable roads (where Street View cars go).
 const ROAD_HIGHWAY_TYPES: &[&str] = &[
@@ -139,7 +188,188 @@ fn preprocess_pbf(pbf_path: &Path, output_path: &Path) -> anyhow::Result<usize> 
     Ok(deduped.len())
 }
 
-async fn download_pbf(client: &reqwest::Client, url: &str, dest: &Path) -> anyhow::Result<()> {
+/// Per-download-slot shared state. The render thread reads it; download tasks
+/// write to it. `pos` is atomic so the per-chunk update is lock-free.
+struct SlotShared {
+    label: StdMutex<String>,
+    pos: AtomicU64,
+    total: AtomicU64,
+    active: AtomicBool,
+}
+
+impl SlotShared {
+    fn new() -> Self {
+        Self {
+            label: StdMutex::new(String::new()),
+            pos: AtomicU64::new(0),
+            total: AtomicU64::new(0),
+            active: AtomicBool::new(false),
+        }
+    }
+
+    fn begin(&self, label: &str, total: u64) {
+        *self.label.lock().unwrap() = label.to_string();
+        self.total.store(total, Ordering::Relaxed);
+        self.pos.store(0, Ordering::Relaxed);
+        self.active.store(true, Ordering::Relaxed);
+    }
+
+    fn end(&self) {
+        self.active.store(false, Ordering::Relaxed);
+        self.pos.store(0, Ordering::Relaxed);
+        self.total.store(0, Ordering::Relaxed);
+    }
+}
+
+struct RenderState {
+    slots: Vec<Arc<SlotShared>>,
+    overall_done: AtomicU64,
+    overall_total: u64,
+    start: Instant,
+}
+
+enum LogMsg {
+    Line(String),
+    Shutdown,
+}
+
+fn format_bytes(n: u64) -> String {
+    const K: f64 = 1024.0;
+    let n = n as f64;
+    if n >= K * K * K {
+        format!("{:.2} GiB", n / (K * K * K))
+    } else if n >= K * K {
+        format!("{:.1} MiB", n / (K * K))
+    } else if n >= K {
+        format!("{:.1} KiB", n / K)
+    } else {
+        format!("{} B", n as u64)
+    }
+}
+
+fn format_elapsed(d: Duration) -> String {
+    let secs = d.as_secs();
+    format!(
+        "{:02}:{:02}:{:02}",
+        secs / 3600,
+        (secs / 60) % 60,
+        secs % 60
+    )
+}
+
+/// Render loop. Owns the terminal; runs on a dedicated OS thread so it doesn't
+/// contend with the tokio runtime or get pre-empted mid-frame.
+fn render_thread(
+    state: Arc<RenderState>,
+    mut log_rx: mpsc::Receiver<LogMsg>,
+) -> anyhow::Result<()> {
+    let backend = CrosstermBackend::new(std::io::stderr());
+    let viewport_height = (state.slots.len() + 1) as u16;
+    let mut terminal = Terminal::with_options(
+        backend,
+        TerminalOptions {
+            viewport: Viewport::Inline(viewport_height),
+        },
+    )?;
+
+    'outer: loop {
+        // Drain any pending log messages (these get inserted ABOVE the inline
+        // viewport, so they scroll into history naturally).
+        loop {
+            match log_rx.try_recv() {
+                Ok(LogMsg::Line(line)) => {
+                    terminal.insert_before(1, |buf| {
+                        Paragraph::new(line).render(buf.area, buf);
+                    })?;
+                }
+                Ok(LogMsg::Shutdown) => break 'outer,
+                Err(mpsc::error::TryRecvError::Empty) => break,
+                Err(mpsc::error::TryRecvError::Disconnected) => break 'outer,
+            }
+        }
+
+        terminal.draw(|frame| draw_ui(frame, &state))?;
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
+    terminal.clear()?;
+    Ok(())
+}
+
+fn draw_ui(frame: &mut ratatui::Frame, state: &RenderState) {
+    let area = frame.area();
+    let mut constraints = vec![Constraint::Length(1)]; // overall
+    constraints.extend(std::iter::repeat_n(
+        Constraint::Length(1),
+        state.slots.len(),
+    ));
+    let chunks = Layout::vertical(constraints).split(area);
+
+    // Overall bar
+    let done = state.overall_done.load(Ordering::Relaxed);
+    let total = state.overall_total;
+    let ratio = if total > 0 {
+        (done as f64 / total as f64).min(1.0)
+    } else {
+        0.0
+    };
+    let overall_label = format!(
+        "Overall {}/{} regions  ({})",
+        done,
+        total,
+        format_elapsed(state.start.elapsed())
+    );
+    let overall = Gauge::default()
+        .gauge_style(Style::default().fg(Color::Green).bg(Color::Black))
+        .ratio(ratio)
+        .label(Span::styled(
+            overall_label,
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
+    frame.render_widget(overall, chunks[0]);
+
+    // Per-slot bars
+    for (i, slot) in state.slots.iter().enumerate() {
+        let area = chunks[i + 1];
+        let active = slot.active.load(Ordering::Relaxed);
+        if active {
+            let pos = slot.pos.load(Ordering::Relaxed);
+            let total = slot.total.load(Ordering::Relaxed);
+            let ratio = if total > 0 {
+                (pos as f64 / total as f64).min(1.0)
+            } else {
+                0.0
+            };
+            let label = slot.label.lock().unwrap().clone();
+            let text = format!(
+                "{} — {} / {}",
+                label,
+                format_bytes(pos),
+                format_bytes(total)
+            );
+            let gauge = Gauge::default()
+                .gauge_style(Style::default().fg(Color::Cyan).bg(Color::Black))
+                .ratio(ratio)
+                .label(text);
+            frame.render_widget(gauge, area);
+        } else {
+            let p = Paragraph::new(Line::from(Span::styled(
+                "(idle)",
+                Style::default().fg(Color::DarkGray),
+            )));
+            frame.render_widget(p, area);
+        }
+    }
+}
+
+/// Download a PBF, updating the given slot's shared state as bytes arrive.
+async fn download_pbf(
+    client: &reqwest::Client,
+    url: &str,
+    dest: &Path,
+    slot: &SlotShared,
+    label: &str,
+) -> anyhow::Result<()> {
     let resp = client
         .get(url)
         .send()
@@ -148,13 +378,7 @@ async fn download_pbf(client: &reqwest::Client, url: &str, dest: &Path) -> anyho
         .context("Failed to download PBF")?;
 
     let total_size = resp.content_length().unwrap_or(0);
-    let pb = ProgressBar::new(total_size);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("{bar:40.cyan/blue} {bytes}/{total_bytes} ({eta})")
-            .unwrap()
-            .progress_chars("##-"),
-    );
+    slot.begin(label, total_size);
 
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
@@ -165,10 +389,9 @@ async fn download_pbf(client: &reqwest::Client, url: &str, dest: &Path) -> anyho
     while let Some(chunk) = stream.next().await {
         let chunk = chunk?;
         file.write_all(&chunk)?;
-        pb.inc(chunk.len() as u64);
+        slot.pos.fetch_add(chunk.len() as u64, Ordering::Relaxed);
     }
 
-    pb.finish_and_clear();
     Ok(())
 }
 
@@ -308,49 +531,154 @@ async fn main() -> anyhow::Result<()> {
             .unwrap_or_default()
     );
 
-    // Process each leaf region
-    let tmp_pbf = output_dir.join(".tmp_download.osm.pbf");
-    let mut completed = 0;
+    // Split out already-processed regions (resumable).
     let total = filtered.len();
-
-    for (region, path) in &filtered {
+    let mut work: Vec<(String, String, String, PathBuf, PathBuf)> = Vec::new();
+    let mut skipped = 0;
+    for (idx, (region, path)) in filtered.iter().enumerate() {
         let roadpoints_path = output_dir.join(format!("{}.roadpoints", path));
-
-        // Skip if already processed (resumable)
         if roadpoints_path.exists() {
-            completed += 1;
-            println!(
-                "[{}/{}] Skipping {} (already exists)",
-                completed, total, path
-            );
+            skipped += 1;
+            println!("[skip] {} (already exists)", path);
             continue;
         }
-
-        completed += 1;
-        let url = region.pbf_url.as_ref().unwrap();
-        println!("[{}/{}] Downloading {}...", completed, total, region.name);
-        info!("URL: {}", url);
-
-        download_pbf(&client, url, &tmp_pbf).await?;
-
-        let pbf_size = fs::metadata(&tmp_pbf)?.len();
-        println!(
-            "  Downloaded {:.1} MB, preprocessing...",
-            pbf_size as f64 / 1_048_576.0
-        );
-
-        let points = preprocess_pbf(&tmp_pbf, &roadpoints_path)?;
-        let rp_size = fs::metadata(&roadpoints_path)?.len();
-        println!(
-            "  Wrote {} ({} points, {:.1} MB)",
-            roadpoints_path.display(),
-            points,
-            rp_size as f64 / 1_048_576.0
-        );
-
-        // Clean up the PBF
-        fs::remove_file(&tmp_pbf)?;
+        let tmp_pbf = output_dir.join(format!(".tmp_download_{}.osm.pbf", idx));
+        work.push((
+            region.name.clone(),
+            path.clone(),
+            region.pbf_url.as_ref().unwrap().clone(),
+            tmp_pbf,
+            roadpoints_path,
+        ));
     }
+
+    if work.is_empty() {
+        println!("Done! All {} regions already processed.", total);
+        return Ok(());
+    }
+
+    println!(
+        "Downloading {} region(s) with concurrency {} ({} already done)",
+        work.len(),
+        DOWNLOAD_CONCURRENCY,
+        skipped
+    );
+
+    // Build shared render state and slot pool (just indices).
+    let slots: Vec<Arc<SlotShared>> = (0..DOWNLOAD_CONCURRENCY)
+        .map(|_| Arc::new(SlotShared::new()))
+        .collect();
+    let render_state = Arc::new(RenderState {
+        slots: slots.clone(),
+        overall_done: AtomicU64::new(skipped as u64),
+        overall_total: total as u64,
+        start: Instant::now(),
+    });
+    let slot_pool: Arc<Mutex<VecDeque<usize>>> =
+        Arc::new(Mutex::new((0..DOWNLOAD_CONCURRENCY).collect()));
+
+    let (log_tx, log_rx) = mpsc::channel::<LogMsg>(256);
+
+    // Spawn the render thread (owns the terminal).
+    let render_state_for_thread = render_state.clone();
+    let render_handle = std::thread::spawn(move || render_thread(render_state_for_thread, log_rx));
+
+    // Channel: download pool → preprocess worker.
+    let (tx, mut rx) = mpsc::channel::<(String, String, PathBuf, PathBuf)>(DOWNLOAD_CONCURRENCY);
+
+    let download_log = log_tx.clone();
+    let download_client = client.clone();
+    let download_pool = slot_pool.clone();
+    let download_slots = slots.clone();
+    let download_handle = tokio::spawn(async move {
+        stream::iter(work)
+            .for_each_concurrent(
+                DOWNLOAD_CONCURRENCY,
+                |(name, path, url, tmp_pbf, roadpoints)| {
+                    let tx = tx.clone();
+                    let client = download_client.clone();
+                    let log_tx = download_log.clone();
+                    let pool = download_pool.clone();
+                    let slots = download_slots.clone();
+                    async move {
+                        let label = clean_label(&name);
+                        let slot_idx = {
+                            let mut p = pool.lock().await;
+                            p.pop_front().expect("slot pool exhausted")
+                        };
+                        let slot = &slots[slot_idx];
+                        let result = download_pbf(&client, &url, &tmp_pbf, slot, &label).await;
+                        slot.end();
+                        pool.lock().await.push_back(slot_idx);
+
+                        match result {
+                            Ok(()) => {
+                                if tx.send((name, path, tmp_pbf, roadpoints)).await.is_err() {
+                                    // Receiver dropped; nothing more we can do.
+                                }
+                            }
+                            Err(e) => {
+                                let _ = log_tx
+                                    .send(LogMsg::Line(format!(
+                                        "Error downloading {}: {} — skipping",
+                                        path, e
+                                    )))
+                                    .await;
+                                let _ = fs::remove_file(&tmp_pbf);
+                            }
+                        }
+                    }
+                },
+            )
+            .await;
+    });
+
+    // Preprocess worker (serial — preprocess_pbf already saturates CPU via rayon).
+    let mut done = skipped;
+    while let Some((name, path, tmp_pbf, roadpoints)) = rx.recv().await {
+        done += 1;
+        let pbf_size = fs::metadata(&tmp_pbf).map(|m| m.len()).unwrap_or(0);
+        let label = clean_label(&name);
+        let _ = log_tx
+            .send(LogMsg::Line(format!(
+                "[{}/{}] Preprocessing {} ({:.1} MB)...",
+                done,
+                total,
+                label,
+                pbf_size as f64 / 1_048_576.0
+            )))
+            .await;
+
+        match preprocess_pbf(&tmp_pbf, &roadpoints) {
+            Ok(points) => {
+                let rp_size = fs::metadata(&roadpoints).map(|m| m.len()).unwrap_or(0);
+                let _ = log_tx
+                    .send(LogMsg::Line(format!(
+                        "  Wrote {} ({} points, {:.1} MB)",
+                        roadpoints.display(),
+                        points,
+                        rp_size as f64 / 1_048_576.0
+                    )))
+                    .await;
+            }
+            Err(e) => {
+                let _ = log_tx
+                    .send(LogMsg::Line(format!(
+                        "Error preprocessing {}: {} — skipping",
+                        path, e
+                    )))
+                    .await;
+                let _ = fs::remove_file(&roadpoints);
+            }
+        }
+
+        let _ = fs::remove_file(&tmp_pbf);
+        render_state.overall_done.fetch_add(1, Ordering::Relaxed);
+    }
+
+    download_handle.await?;
+    let _ = log_tx.send(LogMsg::Shutdown).await;
+    let _ = render_handle.join();
 
     println!("Done! All regions processed.");
     Ok(())

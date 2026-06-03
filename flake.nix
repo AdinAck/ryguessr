@@ -25,7 +25,7 @@
           inherit system;
           overlays = [(import rust-overlay)];
         };
-        lib = pkgs.lib;
+        inherit (pkgs) lib;
 
         rustToolchain = pkgs.rust-bin.stable.latest.default;
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
@@ -82,7 +82,7 @@
           version = "0.1.0";
           src = ./web;
 
-          npmDepsHash = "sha256-I5vQO1MzHal4GpgsEVTNhERH2Vgpf7rps1yARTK6fvQ=";
+          npmDepsHash = "sha256-8HJGk+oCqsA6V6C5PzoYDKmwVRPiA8tzZz59WRCsZ1I=";
 
           NEXT_TELEMETRY_DISABLED = "1";
 
