@@ -17,6 +17,7 @@ import { Settings2 } from "lucide-react";
 
 // SSE Refresh
 import { refreshSseEventStream, useSignal } from "@/lib/signal";
+import PlayerScore from "@/types/player-score";
 
 export const GameView = () => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined);
@@ -38,7 +39,11 @@ export const GameView = () => {
           cum_score: entry.player.score,
         });
       }
-      console.log(score_data);
+      score_data.player_scores = score_data.player_scores.sort(
+        (a: PlayerScore, b: PlayerScore): number => {
+          return Number(b.cum_score) - Number(a.cum_score);
+        },
+      );
       return score_data;
     }
     return null;
