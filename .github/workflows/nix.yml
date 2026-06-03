@@ -1,0 +1,23 @@
+name: Nix
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: flake check
+        run: nix flake check --print-build-logs
+      - name: build server
+        run: nix build .#server --print-build-logs
+      - name: build web
+        run: nix build .#web --print-build-logs
+      - name: build setup-osm
+        run: nix build .#setup-osm --print-build-logs

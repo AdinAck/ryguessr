@@ -17,7 +17,7 @@ pub fn srgb(tokens: TokenStream) -> TokenStream {
         );
 
         let [r, g, b] = array::from_fn(|i| {
-            u8::from_str_radix(&hex_str.get(i * 2..(i + 1) * 2).ok_or(err.clone())?, 16)
+            u8::from_str_radix(hex_str.get(i * 2..(i + 1) * 2).ok_or(err.clone())?, 16)
                 .map_err(|e| syn::Error::new_spanned(&lit, e.to_string()))
         });
 

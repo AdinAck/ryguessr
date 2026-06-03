@@ -51,9 +51,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/room/{code}", get(routes::room::room_handler))
         .with_state(cx)
         .layer(TraceLayer::new_for_http())
-        .fallback_service(ServeDir::new("../web/out"));
+        .fallback_service(ServeDir::new(&config.web_dir));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+    let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
     info!("Listening on: {}", listener.local_addr()?);
 
     axum::serve(listener, app).await?;
