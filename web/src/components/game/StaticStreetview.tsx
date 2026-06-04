@@ -1,7 +1,12 @@
 import Image from "next/image";
 
+// Zustand
+import { useAPIKEY } from "@/store/useSettingsStore";
+
 export const StaticStreetview = ({ panoId }: { panoId?: string }) => {
-  const imageUrl = `https://maps.googleapis.com/maps/api/streetview?size=960x540&pano=${panoId}&pitch=0&fov=90&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+  const google_maps_api_key = useAPIKEY((state) => state.google_maps_api_key);
+
+  const imageUrl = `https://maps.googleapis.com/maps/api/streetview?size=960x540&pano=${panoId}&pitch=0&fov=90&key=${google_maps_api_key}`;
 
   return (
     <div className="relative h-full w-full bg-black">

@@ -68,7 +68,6 @@ const RoomSettings = () => {
       }
       const joinResponse: PlayerData[] = await response.json();
       RoomSettingsActions.updateRoomCode(requestedRoomCode);
-      console.log(joinResponse);
       for (const value of Object.values(joinResponse)) {
         for (const [k, v] of Object.entries(value)) {
           if (k == "username" && v.toLowerCase() == username.toLowerCase()) {

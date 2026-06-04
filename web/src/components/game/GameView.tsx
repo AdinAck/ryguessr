@@ -17,6 +17,7 @@ import { Settings2 } from "lucide-react";
 
 // SSE Refresh
 import { refreshSseEventStream, useSignal } from "@/lib/signal";
+import PlayerScore from "@/types/player-score";
 
 export const GameView = () => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined);
@@ -38,7 +39,11 @@ export const GameView = () => {
           cum_score: entry.player.score,
         });
       }
-      console.log(score_data);
+      score_data.player_scores = score_data.player_scores.sort(
+        (a: PlayerScore, b: PlayerScore): number => {
+          return Number(b.cum_score) - Number(a.cum_score);
+        },
+      );
       return score_data;
     }
     return null;
@@ -60,10 +65,6 @@ export const GameView = () => {
 
     es.current.addEventListener("round-start", (event) => {
       const round_start: RoundStart = JSON.parse(event.data);
-      console.log("round start");
-      // console.log(round_start.round);
-      // PanoIDUpdateAction.updatePanoID(round_start.pano_id);
-      console.log(round_start.pano_id);
       setPanoId(round_start.pano_id);
       setRoundNumber(round_start.round);
       setHasGuessed(false);
@@ -74,7 +75,6 @@ export const GameView = () => {
 
     es.current.addEventListener("round-end", (event) => {
       const round_data = JSON.parse(event.data);
-      console.log(round_data);
       setRoundData(round_data);
     });
   }, []);
@@ -96,7 +96,6 @@ export const GameView = () => {
   const handleGuess = useCallback(
     async (guess: boolean, selectedLocation: Coordinates) => {
       setHasGuessed(guess);
-      // console.log(selectedLocation);
       const response = await fetch("/api/guess", {
         method: "POST",
         body: JSON.stringify(selectedLocation),
