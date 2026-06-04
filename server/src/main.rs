@@ -46,6 +46,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/guess", post(routes::guess::guess_handler))
         .route("/api/next", post(routes::next::next_handler))
         .route("/api/join", post(routes::join::join_handler))
+        .route(
+            "/api/deactivate",
+            post(routes::deactivate::deactivate_handler),
+        )
         .route("/api/username", post(routes::username::username_handler))
         .route("/api/color", post(routes::color::color_handler))
         .route("/api/room/{code}", get(routes::room::room_handler))

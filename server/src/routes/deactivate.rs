@@ -1,15 +1,18 @@
-use axum::{Json, extract::State};
-use colors::Srgb8;
+use axum::extract::State;
 
 use crate::{AppError, Context, handle};
 
 #[tracing::instrument(skip_all, fields(client_id = %*client_id))]
-pub async fn color_handler(
+pub async fn deactivate_handler(
     State(context): State<Context>,
     client_id: handle::Id,
-    Json(color): Json<Srgb8>,
 ) -> Result<(), AppError> {
-    let mut model = context.model.write().await;
+    context
+        .model
+        .write()
+        .await
+        .client_room_mut(&client_id)?
+        .deactivate();
 
-    model.set_color(&client_id, color)
+    Ok(())
 }
