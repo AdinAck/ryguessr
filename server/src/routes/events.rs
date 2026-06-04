@@ -1,6 +1,8 @@
 use std::pin::Pin;
+use std::time::Duration;
 
 use axum::http::StatusCode;
+use axum::response::sse::KeepAlive;
 use axum::{
     extract::State,
     response::{Sse, sse},
@@ -87,5 +89,9 @@ pub async fn sse_event_handler(
 
     room.event_tx.send(initial_event).unwrap();
 
-    Ok(Sse::new(event_stream))
+    Ok(Sse::new(event_stream).keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("keep-alive"),
+    ))
 }
