@@ -1,25 +1,25 @@
 "use client";
-import { useLoadScript } from "@react-google-maps/api";
 import { useEffect, useState, useRef } from "react";
-import { GameView } from "../game/GameView";
 
 // types
-import UserInit from "@/types/user-init";
+import GameInit from "@/types/game-init";
 
 // zustand
-import { playerActions } from "@/store/useSettingsStore";
-import { RoomSettingsActions } from "@/store/useSettingsStore";
-import { useUserSettings } from "@/store/useSettingsStore";
+import {
+  playerActions,
+  RoomSettingsActions,
+  useUserSettings,
+  APIKEYActions,
+  useAPIKEY,
+} from "@/store/useSettingsStore";
+import GoogleMapLoader from "./map-load";
 
 export const Init = () => {
   const [responseCode, setResponseCode] = useState<number | undefined>();
 
   const hasInitialized = useRef(false);
 
-  // Google Maps api
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-  });
+  const google_maps_api_key = useAPIKEY((state) => state.google_maps_api_key);
 
   useEffect(() => {
     if (hasInitialized.current) return;
@@ -46,8 +46,8 @@ export const Init = () => {
         });
 
         if (response.ok) {
-          const init_response: UserInit = await response.json();
-          console.log(init_response);
+          const init_response: GameInit = await response.json();
+          APIKEYActions.updateAPIKEY(init_response.api_key);
           RoomSettingsActions.updateRoomCode(init_response.room_id);
           playerActions.setSessionData(
             init_response.username,
@@ -64,8 +64,8 @@ export const Init = () => {
     initializeRyguessr();
   }, []);
 
-  return isLoaded && responseCode == 200 ? (
-    <GameView />
+  return responseCode == 200 && google_maps_api_key ? (
+    <GoogleMapLoader APIKEY={google_maps_api_key} />
   ) : (
     <div className="h-screen w-screen bg-black text-white flex items-center justify-center">
       Loading UwU...

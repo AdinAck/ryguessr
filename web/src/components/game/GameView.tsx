@@ -65,10 +65,6 @@ export const GameView = () => {
 
     es.current.addEventListener("round-start", (event) => {
       const round_start: RoundStart = JSON.parse(event.data);
-      console.log("round start");
-      // console.log(round_start.round);
-      // PanoIDUpdateAction.updatePanoID(round_start.pano_id);
-      console.log(round_start.pano_id);
       setPanoId(round_start.pano_id);
       setRoundNumber(round_start.round);
       setHasGuessed(false);
@@ -79,7 +75,6 @@ export const GameView = () => {
 
     es.current.addEventListener("round-end", (event) => {
       const round_data = JSON.parse(event.data);
-      console.log(round_data);
       setRoundData(round_data);
     });
   }, []);
@@ -101,7 +96,6 @@ export const GameView = () => {
   const handleGuess = useCallback(
     async (guess: boolean, selectedLocation: Coordinates) => {
       setHasGuessed(guess);
-      // console.log(selectedLocation);
       const response = await fetch("/api/guess", {
         method: "POST",
         body: JSON.stringify(selectedLocation),

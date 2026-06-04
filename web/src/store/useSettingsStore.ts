@@ -9,6 +9,14 @@ type RoomStateAction = {
   updateRoomCode: (roomCode: RoomState["roomCode"]) => void;
 };
 
+type APIKEYState = {
+  google_maps_api_key: string;
+};
+
+type APIKEYActions = {
+  updateAPIKEY: (APIKEY: APIKEYState["google_maps_api_key"]) => void;
+};
+
 type StreetviewState = {
   panningGesturesEnabled: boolean;
   streetNamesEnabled: boolean;
@@ -39,6 +47,15 @@ type UserState = {
 type GameSession = {
   activeUsername: string;
   activeIconColor: string;
+};
+
+export const useAPIKEY = create<APIKEYState>()(() => ({
+  google_maps_api_key: "",
+}));
+
+export const APIKEYActions: APIKEYActions = {
+  updateAPIKEY: (google_maps_api_key: string) =>
+    useAPIKEY.setState({ google_maps_api_key }),
 };
 
 export const useRoomSettings = create<RoomState>()(() => ({
