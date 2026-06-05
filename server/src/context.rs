@@ -74,28 +74,26 @@ impl Context {
     }
 
     /// Move a client into an existing room. Re-arms the new room's cleanup
-    /// timer if it has no live SSE connections. Returns the new room's roster
-    /// so the joining client can render it without a second round trip.
+    /// timer if it has no live SSE connections. Returns the new client.
     pub async fn move_client_to_room(
         &self,
         client_id: &handle::Id,
         new_room_id: &room::Id,
-    ) -> Result<Vec<PlayerData>, StatusCode> {
+    ) -> Result<PlayerData, StatusCode> {
         let mut model = self.model.write().await;
         model.move_client_to_room(client_id, new_room_id)?;
-
-        let room = model
-            .rooms
-            .get(new_room_id)
-            .expect("room exists after a successful move");
-
-        let players = room.players();
 
         if model.rooms.get(new_room_id).is_some_and(Room::is_idle) {
             self.start_cleanup(&mut model, new_room_id.clone());
         }
 
-        Ok(players)
+        let member = model
+            .rooms
+            .get(new_room_id)
+            .and_then(|r| r.members.get(client_id))
+            .expect("client is in the room after a successful move");
+
+        Ok(member.into())
     }
 
     /// Create a new room with the given user as the first member. Arms the

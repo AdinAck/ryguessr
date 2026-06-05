@@ -9,8 +9,8 @@ pub async fn join_handler(
     State(context): State<Context>,
     client_id: handle::Id,
     Json(room_id): Json<room::Id>,
-) -> Result<Json<Vec<PlayerData>>, StatusCode> {
-    let players = context.move_client_to_room(&client_id, &room_id).await?;
+) -> Result<Json<PlayerData>, StatusCode> {
+    let new_self = context.move_client_to_room(&client_id, &room_id).await?;
 
-    Ok(Json(players))
+    Ok(Json(new_self))
 }
