@@ -73,16 +73,15 @@ const RoomSettings = () => {
         throw new Error(`Room join request failed status: ${response.status}`);
       }
       const joinResponse: PlayerData = await response.json();
-      refreshSseEventStream.emit();
-      RoomSettingsActions.updateRoomCode(requestedRoomCode);
       playerActions.saveCustomColor(joinResponse.color);
+      RoomSettingsActions.updateRoomCode(requestedRoomCode);
+      refreshSseEventStream.emit();
       setRoomCodeInput(requestedRoomCode);
       roomPeek(requestedRoomCode);
     } catch (error) {
       throw new Error(
         `Network error while attempting to join a room: ${error}`,
       );
-    } finally {
     }
   };
 

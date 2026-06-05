@@ -9,8 +9,9 @@ use axum::{
 };
 use futures_util::{Stream, StreamExt};
 use tokio_stream::wrappers::BroadcastStream;
-use tracing::debug;
+use tracing::{debug, error};
 
+use crate::event::Recipients;
 use crate::{Context, RoomEvent, event::RoundStartData, handle, room};
 
 #[pin_project::pin_project(PinnedDrop)]
@@ -67,17 +68,27 @@ pub async fn sse_event_handler(
 
     let rx = room.event_tx.subscribe();
 
-    let broadcast_stream = BroadcastStream::new(rx).map(|result| match result {
-        Ok(event) => {
-            debug!("sending event: {:?}", event);
-
-            Ok(event.try_into()?)
-        }
-        Err(e) => {
-            tracing::error!(%e, "failed to serialize event");
-
-            Err(axum::Error::new(e))
-        }
+    let filter_id = client_id.clone();
+    let broadcast_stream = BroadcastStream::new(rx).filter_map(move |result| {
+        std::future::ready(match result {
+            Ok(envelope) => {
+                let include = match &envelope.recipients {
+                    Recipients::All => true,
+                    Recipients::Only(set) => set.contains(&filter_id),
+                    Recipients::Except(set) => !set.contains(&filter_id),
+                };
+                if include {
+                    debug!("sending event: {:?}", envelope.event);
+                    Some(envelope.event.try_into())
+                } else {
+                    None
+                }
+            }
+            Err(e) => {
+                error!(%e, "sse subscriber lagged");
+                Some(Err(axum::Error::new(e)))
+            }
+        })
     });
 
     let event_stream = EventStream {
@@ -87,7 +98,7 @@ pub async fn sse_event_handler(
         room_id,
     };
 
-    room.event_tx.send(initial_event).unwrap();
+    room.event_tx.send(initial_event.into()).unwrap();
 
     Ok(Sse::new(event_stream).keep_alive(
         KeepAlive::new()

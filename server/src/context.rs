@@ -5,7 +5,7 @@ use colors::Srgb8;
 use tokio::sync::RwLock;
 
 use crate::{
-    Handle, Room, RoomEvent,
+    Handle, Room,
     colors::PlayerColor,
     event::PlayerData,
     geo::{Location, engine::LocationEngine},
@@ -183,14 +183,7 @@ impl Model {
             .get_mut(&handle.room)
             .ok_or(StatusCode::NOT_FOUND)?;
         if let Some(member) = room.members.get_mut(client_id) {
-            let old_username = member.username.clone();
-            member.username = new_username.clone();
-
-            // Broadcast to the room
-            let _ = room.event_tx.send(RoomEvent::ChangeName {
-                old_username,
-                new_username,
-            });
+            member.username = new_username;
         }
 
         Ok(())
@@ -221,12 +214,6 @@ impl Model {
             room.colors.remove_occupied(member.color.srgb);
             room.colors.push_occupied(new_color);
             member.color = PlayerColor::custom(new_color);
-
-            // Broadcast to the room
-            let _ = room.event_tx.send(RoomEvent::ChangeColor {
-                username: member.username.clone(),
-                color: new_color,
-            });
         }
 
         Ok(())
