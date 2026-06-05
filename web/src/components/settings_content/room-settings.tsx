@@ -103,9 +103,13 @@ const RoomSettings = () => {
     <>
       <div className="flex flex-row justify-between items-center">
         <p className="text-xl font-semibold">Room</p>
-        <X
+        <Button
+          className="bg-transparent hover:cursor-pointer"
           onClick={() => settingsStateActions.updateSettingsVisibility(false)}
-        />
+          variant={"secondary"}
+        >
+          <X color="white" />
+        </Button>
       </div>
       <Separator />
       <form onSubmit={(e) => handleRoomCodeSubmit(e)}>

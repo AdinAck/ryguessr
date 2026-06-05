@@ -9,6 +9,7 @@ import { useShallow } from "zustand/shallow";
 import { settingsStateActions } from "@/store/useSettingsStore";
 
 import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const StreetviewSettings = () => {
   const { panning, streetNames, zooming, navigation } = useStreetviewSettings(
@@ -24,9 +25,13 @@ const StreetviewSettings = () => {
     <>
       <div className="flex flex-row justify-between items-center">
         <p className="text-xl font-semibold">Streetview</p>
-        <X
+        <Button
+          className="bg-transparent hover:cursor-pointer"
           onClick={() => settingsStateActions.updateSettingsVisibility(false)}
-        />
+          variant={"secondary"}
+        >
+          <X color="white" />
+        </Button>
       </div>
       <Separator />
       <div className="flex items-center justify-between space-x-2">

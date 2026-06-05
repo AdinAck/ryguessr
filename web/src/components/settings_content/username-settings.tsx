@@ -1,8 +1,8 @@
 "use client";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "../ui/button";
-import { Field } from "../ui/field";
-import { Input } from "../ui/input";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { MapPin } from "lucide-react";
 import { ColorPicker, useColor } from "react-color-palette";
 import "@/components/ui/react-color-palette.css";
@@ -43,9 +43,13 @@ const UsernameSettings = ({
     <>
       <div className="flex flex-row justify-between items-center">
         <p className="text-xl font-semibold">User</p>
-        <X
+        <Button
+          className="bg-transparent hover:cursor-pointer"
           onClick={() => settingsStateActions.updateSettingsVisibility(false)}
-        />
+          variant={"secondary"}
+        >
+          <X color="white" />
+        </Button>
       </div>
       <Separator />
       <form
