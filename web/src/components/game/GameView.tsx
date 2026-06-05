@@ -19,6 +19,12 @@ import { Settings2 } from "lucide-react";
 import { refreshSseEventStream, useSignal } from "@/lib/signal";
 import PlayerScore from "@/types/player-score";
 
+// Zustand
+import {
+  useSettingsState,
+  settingsStateActions,
+} from "@/store/useSettingsStore";
+
 export const GameView = () => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined);
   const [hasGuessed, setHasGuessed] = useState<boolean>(false);
@@ -26,8 +32,12 @@ export const GameView = () => {
   const [hasContinued, setHasContinued] = useState<boolean>(false);
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
-  const [showSettings, setShowSettings] = useState<boolean>(false);
+  // const [showSettings, setShowSettings] = useState<boolean>(false);
   const es = useRef<EventSource | null>(null);
+
+  const settingsVisibility = useSettingsState(
+    (state) => state.settingsVisibility,
+  );
 
   const score_data = useMemo(() => {
     if (roundData) {
@@ -131,7 +141,7 @@ export const GameView = () => {
         <Button
           variant={"outline"}
           onClick={() => {
-            setShowSettings((prev) => !prev);
+            settingsStateActions.updateSettingsVisibility(!settingsVisibility);
           }}
           size="icon"
           color="black"
@@ -140,7 +150,7 @@ export const GameView = () => {
           <Settings2 color="white" />
         </Button>
       </div>
-      {showSettings && (
+      {settingsVisibility && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[99]">
           <Settings />
         </div>

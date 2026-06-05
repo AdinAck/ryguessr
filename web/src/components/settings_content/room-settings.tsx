@@ -7,12 +7,15 @@ import { Field } from "../ui/field";
 import { Button } from "../ui/button";
 import { Input } from "@/components/ui/input";
 
+import { X } from "lucide-react";
+
 // Zustand useRoomSettings
 import {
   playerActions,
   RoomSettingsActions,
   useRoomSettings,
   useGameSession,
+  settingsStateActions,
 } from "@/store/useSettingsStore";
 
 // Error Code enum
@@ -98,7 +101,12 @@ const RoomSettings = () => {
   };
   return (
     <>
-      <p className="text-xl font-semibold">Room</p>
+      <div className="flex flex-row justify-between items-center">
+        <p className="text-xl font-semibold">Room</p>
+        <X
+          onClick={() => settingsStateActions.updateSettingsVisibility(false)}
+        />
+      </div>
       <Separator />
       <form onSubmit={(e) => handleRoomCodeSubmit(e)}>
         <Input

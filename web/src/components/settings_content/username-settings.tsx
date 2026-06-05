@@ -10,6 +10,9 @@ import "@/components/ui/react-color-palette.css";
 // Zustand
 import { useGameSession } from "@/store/useSettingsStore";
 import { useShallow } from "zustand/shallow";
+import { settingsStateActions } from "@/store/useSettingsStore";
+
+import { X } from "lucide-react";
 
 const UsernameSettings = ({
   handleColorRequest,
@@ -38,7 +41,12 @@ const UsernameSettings = ({
 
   return (
     <>
-      <p className="text-xl font-semibold">User</p>
+      <div className="flex flex-row justify-between items-center">
+        <p className="text-xl font-semibold">User</p>
+        <X
+          onClick={() => settingsStateActions.updateSettingsVisibility(false)}
+        />
+      </div>
       <Separator />
       <form
         onSubmit={(e) => handleUsernameSubmit(e)}
