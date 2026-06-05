@@ -6,13 +6,14 @@ import { EventSource } from "eventsource";
 import { Scoreboard } from "./Scoreboard";
 import { Button } from "@/components/ui/button";
 import Settings from "@/components/game/Settings";
+import { AnimatePresence } from "framer-motion";
 // Type Data
 import RoundData from "@/types/round-data";
 import ScoreData from "@/types/score-data";
 import RoundStart from "@/types/round-start";
 import Coordinates from "@/types/coordinate_type";
 
-// Settings icon
+// Lucide icons
 import { Settings2 } from "lucide-react";
 
 // SSE Refresh
@@ -24,6 +25,10 @@ import {
   useSettingsState,
   settingsStateActions,
 } from "@/store/useSettingsStore";
+import PlayerData from "@/types/player-data";
+import PlayerLeave from "@/types/player-leave";
+import { AutoDismissAlert } from "./AlertManager";
+import NotificationItem from "@/types/notification-item";
 
 export const GameView = () => {
   const [panoId, setPanoId] = useState<string | undefined>(undefined);
@@ -32,7 +37,7 @@ export const GameView = () => {
   const [hasContinued, setHasContinued] = useState<boolean>(false);
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
-  // const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [notifications, addNotifications] = useState<NotificationItem[]>([]);
   const es = useRef<EventSource | null>(null);
 
   const settingsVisibility = useSettingsState(
@@ -87,6 +92,30 @@ export const GameView = () => {
       const round_data = JSON.parse(event.data);
       setRoundData(round_data);
     });
+
+    es.current.addEventListener("player-joined", (event) => {
+      const playerJoinData: PlayerData = JSON.parse(event.data);
+      addNotifications((prev) => [
+        ...prev,
+        {
+          id: playerJoinData.username,
+          title: "Player Join",
+          description: `${playerJoinData.username} has joined the Room!`,
+        },
+      ]);
+    });
+
+    es.current.addEventListener("player-left", (event) => {
+      const playerLeaveData: PlayerLeave = JSON.parse(event.data);
+      addNotifications((prev) => [
+        ...prev,
+        {
+          id: playerLeaveData.username,
+          title: "Player Left",
+          description: `${playerLeaveData.username} has left the Room!`,
+        },
+      ]);
+    });
   }, []);
 
   useSignal(refreshSseEventStream, () => {
@@ -135,6 +164,10 @@ export const GameView = () => {
     setShownScoreboard(true);
   }, []);
 
+  const removeNotification = (id: string) => {
+    addNotifications((prev) => prev.filter((noti) => noti.id !== id));
+  };
+
   return (
     <main className="bg-black relative h-dvh w-full overflow-hidden">
       <div className="absolute top-5 right-5 z-[99] bg-background border-1 border-white rounded-lg transition-all duration-100 active:scale-90">
@@ -149,6 +182,20 @@ export const GameView = () => {
         >
           <Settings2 color="white" />
         </Button>
+      </div>
+      <div className="absolute flex flex-col gap-3 pointer-events-none top-5 left-5 z-[99] rounded-lg">
+        <AnimatePresence>
+          {notifications.map((noti, index) => {
+            return (
+              <AutoDismissAlert
+                key={noti.id}
+                title={noti.title}
+                description={noti.description}
+                onDismiss={() => removeNotification(noti.id)}
+              />
+            );
+          })}
+        </AnimatePresence>
       </div>
       {settingsVisibility && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[99]">
@@ -187,7 +234,6 @@ export const GameView = () => {
           handleGuess={handleGuess}
           handleContinue={handleContinue}
         />{" "}
-        {/*handleScoreboard={handleScoreboard} shownScoreboard={shownScoreboard} */}
       </div>
       {score_data && shownScoreboard && (
         <div className="overflow-hidden absolute transition-all duration-300 ease-in-out top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
