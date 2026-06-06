@@ -89,26 +89,41 @@ const RoomSettings = () => {
     }
   };
 
+  const upperInput = roomCodeInput.toUpperCase();
+  const isRightLength = upperInput.length === 4;
+  const isNewRoom = upperInput !== roomCode;
+  const isRoomValid = requestStatusCode === StatusCodes.OK && !isPeeking;
+
+  const canJoinRoom = isRightLength && isNewRoom && isRoomValid;
+
   const tryRoomCode = (roomCodeCapture: string) => {
-    setRoomCodeInput(roomCodeCapture);
+    const upperCode = roomCodeCapture.toUpperCase();
+    setRoomCodeInput(upperCode);
+
     if (roomCodeCapture.length == 4) {
-      roomPeek(roomCodeCapture.toUpperCase());
+      roomPeek(upperCode);
+    } else {
+      setRequestStatusCode(StatusCodes.OK);
     }
   };
 
   const handleRoomCodeSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const submittedRoomCode = formData.get("room_code") as string;
-    if (submittedRoomCode != roomCode) {
-      handleRoomJoinRequest(submittedRoomCode.toUpperCase());
-    }
+    if (!canJoinRoom) return;
+    handleRoomJoinRequest(upperInput);
   };
 
   useSignal(refreshPlayerList, () => {
     console.log("room refresh");
     roomPeek(roomCode);
   });
+
+  const getTextColorClass = () => {
+    if (upperInput === roomCode) return "text-green-500";
+    if (upperInput.length < 4 || isPeeking) return "text-gray-600";
+    if (requestStatusCode === StatusCodes.OK) return "text-amber-400";
+    return "text-red-400";
+  };
 
   return (
     <>
@@ -128,24 +143,11 @@ const RoomSettings = () => {
         onSubmit={(e) => handleRoomCodeSubmit(e)}
       >
         <Input
-          className={`!bg-transparent not-focus:text-7xl tracking-wider border-none select-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-7xl placeholder:text-white focus:text-7xl font-semibold h-fit max-w-full uppercase placeholder:tracking-wider 
-        ${
-          roomCodeInput == roomCode
-            ? "text-green-500"
-            : roomCodeInput && roomCodeInput.length <= 3
-              ? `text-gray-600`
-              : roomCodeInput.length == 4 && requestStatusCode == StatusCodes.OK
-                ? `text-amber-400`
-                : roomCodeInput.length == 4 &&
-                    (StatusCodes.NOT_FOUND || StatusCodes.UNAUTHORIZED)
-                  ? `text-red-400`
-                  : undefined
-        }`}
+          className={`!bg-transparent not-focus:text-7xl tracking-wider border-none select-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-7xl placeholder:text-white focus:text-7xl font-semibold h-fit max-w-full uppercase placeholder:tracking-wider ${getTextColorClass()}`}
           id="input-field-roomcode"
           name="room_code"
           type="text"
           maxLength={4}
-          defaultValue={roomCodeInput}
           value={roomCodeInput}
           enterKeyHint="enter"
           onBlur={(e) => {
@@ -161,12 +163,16 @@ const RoomSettings = () => {
         <Separator />
         <div className="flex flex-col gap-3 w-full">
           <Field orientation="horizontal">
-            <Button type="submit" className={`w-full`} id="join-room-button">
+            <Button
+              type={`${!canJoinRoom ? `button` : `submit`}`}
+              className={`w-full ${!canJoinRoom ? `cursor-not-allowed` : `cursor-pointer`}`}
+              id="join-room-button"
+            >
               Join Room
             </Button>
           </Field>
           <Field orientation="horizontal">
-            <Button type="button" className="w-full">
+            <Button type="button" className="hover:cursor-pointer w-full">
               Inactive
             </Button>
           </Field>
