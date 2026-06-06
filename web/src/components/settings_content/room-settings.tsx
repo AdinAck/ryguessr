@@ -103,7 +103,7 @@ const RoomSettings = () => {
       <div className="flex flex-row justify-between items-center">
         <p className="text-xl font-semibold">Room</p>
         <Button
-          className="bg-transparent hover:cursor-pointer"
+          className="bg-transparent hover:cursor-pointer border-1"
           onClick={() => settingsStateActions.updateSettingsVisibility(false)}
           variant={"secondary"}
         >
@@ -111,7 +111,10 @@ const RoomSettings = () => {
         </Button>
       </div>
       <Separator />
-      <form onSubmit={(e) => handleRoomCodeSubmit(e)}>
+      <form
+        className="flex flex-col gap-3 w-full"
+        onSubmit={(e) => handleRoomCodeSubmit(e)}
+      >
         <Input
           className={`!bg-transparent not-focus:text-7xl tracking-wider border-none select-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-7xl placeholder:text-white focus:text-7xl font-semibold h-fit max-w-full uppercase placeholder:tracking-wider 
         ${
@@ -133,28 +136,32 @@ const RoomSettings = () => {
           defaultValue={roomCodeInput}
           value={roomCodeInput}
           enterKeyHint="enter"
-          onBlur={() => {
+          onBlur={(e) => {
+            if (e.relatedTarget && e.relatedTarget.id == "join-room-button") {
+              return;
+            }
             setRoomCodeInput(roomCode);
             setRequestStatusCode(StatusCodes.OK);
           }}
           onChange={(e) => tryRoomCode(e.target.value)}
         />
+
+        <Separator />
+        <div className="flex flex-col gap-3 w-full">
+          <Field orientation="horizontal">
+            <Button type="submit" className={`w-full`} id="join-room-button">
+              Join Room
+            </Button>
+          </Field>
+          <Field orientation="horizontal">
+            <Button type="button" className="w-full">
+              Inactive
+            </Button>
+          </Field>
+        </div>
+        <Separator />
       </form>
 
-      <Separator />
-      <form className="flex flex-col gap-3 w-full">
-        <Field orientation="horizontal">
-          <Button type="submit" className={`w-full`}>
-            Join Room
-          </Button>
-        </Field>
-        <Field orientation="horizontal">
-          <Button type="submit" className="w-full">
-            Inactive
-          </Button>
-        </Field>
-      </form>
-      <Separator />
       {playerData.length > 0 && roomCodeInput.length == 4 && (
         <>
           <p className="text-lg font-medium">Players</p>
