@@ -16,8 +16,12 @@ import Coordinates from "@/types/coordinate_type";
 // Lucide icons
 import { Settings2 } from "lucide-react";
 
-// SSE Refresh
-import { refreshSseEventStream, useSignal } from "@/lib/signal";
+// Signals
+import {
+  refreshSseEventStream,
+  useSignal,
+  refreshPlayerList,
+} from "@/lib/signal";
 import PlayerScore from "@/types/player-score";
 
 // Zustand
@@ -103,6 +107,7 @@ export const GameView = () => {
           description: `${playerJoinData.username} has joined the Room!`,
         },
       ]);
+      refreshPlayerList.emit();
     });
 
     es.current.addEventListener("player-left", (event) => {
@@ -115,6 +120,8 @@ export const GameView = () => {
           description: `${playerLeaveData.username} has left the Room!`,
         },
       ]);
+
+      refreshPlayerList.emit();
     });
   }, []);
 

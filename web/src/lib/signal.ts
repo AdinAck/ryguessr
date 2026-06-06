@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
-import PlayerLeave from "@/types/player-leave";
-import PlayerData from "@/types/player-data";
+// import PlayerLeave from "@/types/player-leave";
+// import PlayerData from "@/types/player-data";
 
 export function createSignal<T = void>() {
   const listeners = new Set<(payload: T) => void>();
@@ -30,6 +30,5 @@ export function useSignal<T>(
   }, [signal]);
 }
 
-export const playerJoinSignal = createSignal<PlayerData>();
-export const playerLeaveSignal = createSignal<PlayerLeave>();
+export const refreshPlayerList = createSignal();
 export const refreshSseEventStream = createSignal();

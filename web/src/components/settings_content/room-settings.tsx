@@ -24,7 +24,8 @@ import StatusCodes from "@/types/status-codes";
 // RoomPeek reseponse type
 import PlayerData from "@/types/player-data";
 
-// SSE Refresh
+// Signals
+import { useSignal, refreshPlayerList } from "@/lib/signal";
 import { refreshSseEventStream } from "@/lib/signal";
 
 const RoomSettings = () => {
@@ -98,6 +99,12 @@ const RoomSettings = () => {
     const submittedRoomCode = formData.get("room_code") as string;
     handleRoomJoinRequest(submittedRoomCode.toUpperCase());
   };
+
+  useSignal(refreshPlayerList, () => {
+    console.log("room refresh");
+    roomPeek(roomCode);
+  });
+
   return (
     <>
       <div className="flex flex-row justify-between items-center">
