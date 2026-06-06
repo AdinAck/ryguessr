@@ -49,10 +49,8 @@ export const Init = () => {
           const init_response: GameInit = await response.json();
           APIKEYActions.updateAPIKEY(init_response.api_key);
           RoomSettingsActions.updateRoomCode(init_response.room_id);
-          playerActions.setSessionData(
-            init_response.username,
-            init_response.color,
-          );
+          playerActions.setActiveUsername(init_response.username);
+          playerActions.setActiveColor(init_response.color);
           setResponseCode(response.status);
         } else {
           console.error("Initialization failed... status:", response.status);

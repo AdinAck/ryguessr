@@ -6,6 +6,10 @@ import { Label } from "@/components/ui/label";
 import { StreetviewStateActions } from "@/store/useSettingsStore";
 import { useStreetviewSettings } from "@/store/useSettingsStore";
 import { useShallow } from "zustand/shallow";
+import { settingsStateActions } from "@/store/useSettingsStore";
+
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const StreetviewSettings = () => {
   const { panning, streetNames, zooming, navigation } = useStreetviewSettings(
@@ -19,7 +23,16 @@ const StreetviewSettings = () => {
 
   return (
     <>
-      <p className="text-xl font-semibold">Streetview</p>
+      <div className="flex flex-row justify-between items-center">
+        <p className="text-xl font-semibold">Streetview</p>
+        <Button
+          className="bg-transparent hover:cursor-pointer"
+          onClick={() => settingsStateActions.updateSettingsVisibility(false)}
+          variant={"secondary"}
+        >
+          <X color="white" />
+        </Button>
+      </div>
       <Separator />
       <div className="flex items-center justify-between space-x-2">
         <Label htmlFor="panningGesturesEnabled">Panning Gestures</Label>

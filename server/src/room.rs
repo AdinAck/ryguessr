@@ -8,7 +8,7 @@ use tokio::{sync::broadcast, task::JoinHandle};
 use crate::{
     Coordinates, RoomEvent,
     colors::{DistinctColors, PlayerColor},
-    event::{PlayerData, PlayerResult, RoundEndData, RoundStartData},
+    event::{EventEnvelope, PlayerData, PlayerResult, RoundEndData, RoundStartData},
     geo::Location,
     handle, score,
 };
@@ -38,7 +38,7 @@ pub struct Room {
     #[allow(dead_code)]
     config: Config,
     /// The event sender handle for the room, used to broadcast events to all members of the room.
-    pub event_tx: broadcast::Sender<RoomEvent>,
+    pub event_tx: broadcast::Sender<EventEnvelope>,
     /// Number of live SSE connections subscribed to this room.
     active_connections: usize,
     /// Handle to a cleanup task scheduled while the room is idle.
@@ -126,12 +126,14 @@ impl Room {
 
         let new_member = MemberAttributes::new(username.clone(), color);
 
-        let event = RoomEvent::PlayerJoined(PlayerData::from(&new_member));
+        let event = RoomEvent::PlayerJoined {
+            client_id: client_id.clone(),
+            data: PlayerData::from(&new_member),
+        };
 
         self.members.insert(client_id.clone(), new_member);
 
-        // Broadcast join event
-        let _ = self.event_tx.send(event);
+        let _ = self.event_tx.send(event.into());
     }
 
     /// Snapshot of every member as `PlayerData`, suitable for sending to a
@@ -146,10 +148,13 @@ impl Room {
         };
         self.colors.remove_occupied(member.color.srgb);
 
-        // Broadcast leave event
-        let _ = self.event_tx.send(RoomEvent::PlayerLeft {
-            username: member.username,
-        });
+        let _ = self.event_tx.send(
+            RoomEvent::PlayerLeft {
+                client_id: client_id.clone(),
+                username: member.username,
+            }
+            .into(),
+        );
     }
 
     /// Handle a ready submission from a member of the room.
@@ -185,7 +190,7 @@ impl Room {
         let round = self.round;
         let _ = self
             .event_tx
-            .send(RoomEvent::RoundStart(RoundStartData { pano_id, round }));
+            .send(RoomEvent::RoundStart(RoundStartData { pano_id, round }).into());
     }
 
     /// Handle a guess from a member of the room. This will update the member's score and broadcast
@@ -225,8 +230,7 @@ impl Room {
                 real_location: self.location.coordinates.clone(),
                 player_results,
             });
-            // Broadcast round end event to all members of the room.
-            let _ = self.event_tx.send(event);
+            let _ = self.event_tx.send(event.into());
 
             // Reset guesses for next round
             for member in self.members.values_mut() {

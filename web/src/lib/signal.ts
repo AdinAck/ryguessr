@@ -1,19 +1,23 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
-export function createSignal() {
-  const listeners = new Set<() => void>();
+// import PlayerLeave from "@/types/player-leave";
+// import PlayerData from "@/types/player-data";
+
+export function createSignal<T = void>() {
+  const listeners = new Set<(payload: T) => void>();
   return {
-    emit: () => listeners.forEach((l) => l()),
-    subscribe: (l: () => void) => {
+    emit: (payload?: T) => listeners.forEach((l) => l(payload as T)),
+
+    subscribe: (l: (payload: T) => void) => {
       listeners.add(l);
       return () => listeners.delete(l);
     },
   };
 }
 
-export function useSignal(
-  signal: { subscribe: (l: () => void) => () => void },
-  handler: () => void,
+export function useSignal<T>(
+  signal: { subscribe: (l: (payload: T) => void) => () => void },
+  handler: (payload: T) => void,
 ) {
   const ref = useRef(handler);
 
@@ -22,8 +26,9 @@ export function useSignal(
   });
 
   useEffect(() => {
-    return signal.subscribe(() => ref.current());
+    return signal.subscribe((payload) => ref.current(payload));
   }, [signal]);
 }
 
+export const refreshPlayerList = createSignal();
 export const refreshSseEventStream = createSignal();

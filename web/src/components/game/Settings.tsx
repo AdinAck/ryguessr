@@ -117,7 +117,7 @@ const Settings = () => {
       </div>
 
       <div
-        className="flex flex-col grow-2 gap-3 py-2 px-4 bg-black rounded-lg w-full overflow-y-auto"
+        className="flex flex-col grow-2 gap-3 py-2 px-4 bg-black rounded-lg w-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         id="settings_body"
       >
         {currentSettingToggle === SettingsToggle.Room && <RoomSettings />}

@@ -9,6 +9,16 @@ type RoomStateAction = {
   updateRoomCode: (roomCode: RoomState["roomCode"]) => void;
 };
 
+type settingsState = {
+  settingsVisibility: boolean;
+};
+
+type settingsStateAction = {
+  updateSettingsVisibility: (
+    settingVisiblity: settingsState["settingsVisibility"],
+  ) => void;
+};
+
 type APIKEYState = {
   google_maps_api_key: string;
 };
@@ -47,6 +57,15 @@ type UserState = {
 type GameSession = {
   activeUsername: string;
   activeIconColor: string;
+};
+
+export const useSettingsState = create<settingsState>(() => ({
+  settingsVisibility: false,
+}));
+
+export const settingsStateActions: settingsStateAction = {
+  updateSettingsVisibility: (settingsVisibility: boolean) =>
+    useSettingsState.setState({ settingsVisibility }),
 };
 
 export const useAPIKEY = create<APIKEYState>()(() => ({
@@ -117,10 +136,11 @@ export const playerActions = {
     useGameSession.setState({ activeIconColor: color });
   },
 
-  setSessionData: (name: string, color: string) => {
-    useGameSession.setState({
-      activeUsername: name,
-      activeIconColor: color,
-    });
+  setActiveUsername: (activeUsername: string) => {
+    useGameSession.setState({ activeUsername });
+  },
+
+  setActiveColor: (activeIconColor: string) => {
+    useGameSession.setState({ activeIconColor });
   },
 };

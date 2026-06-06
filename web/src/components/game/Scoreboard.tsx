@@ -3,6 +3,9 @@ import NumberFlow, { continuous } from "@number-flow/react";
 import ScoreData from "@/types/score-data";
 import { memo } from "react";
 import { CSSProperties, useState, useEffect } from "react";
+import { MapPin } from "lucide-react";
+
+import { useGameSession } from "@/store/useSettingsStore";
 
 export const Scoreboard = memo(function Scoreboard({
   score_data,
@@ -10,6 +13,7 @@ export const Scoreboard = memo(function Scoreboard({
   score_data: ScoreData;
 }) {
   const [animateToRealScore, setAnimateToRealScore] = useState(false);
+  const username = useGameSession((state) => state.activeUsername);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -25,11 +29,22 @@ export const Scoreboard = memo(function Scoreboard({
         return (
           <div
             key={score.name}
-            className="flex justify-between items-center w-full bg-black/80 border-2 rounded-lg py-2 text-white shadow-md"
+            className="py-3 px-3 flex justify-between items-center w-full bg-black/80 border-2 rounded-lg text-white shadow-md"
           >
-            <span className="text-sm px-2">{score.name}</span>
+            <div className="flex text-md flex-row items-center gap-3">
+              <MapPin color={score.IconColor} strokeWidth={1.5} />
+              <span className="flex items-center gap-1">
+                {score.name === username ? (
+                  <>
+                    {score.name} <span className="font-bold">(ME)</span>
+                  </>
+                ) : (
+                  score.name
+                )}
+              </span>
+            </div>
             <NumberFlow
-              className="text-right px-2 text-sm font-semibold overflow-hidden"
+              className="text-right font-semibold overflow-hidden"
               plugins={[continuous]}
               value={
                 animateToRealScore
