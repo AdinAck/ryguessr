@@ -56,6 +56,7 @@ export const GameView = () => {
           name: entry.player.username,
           last_score: entry.round_score,
           cum_score: entry.player.score,
+          IconColor: entry.player.color,
         });
       }
       score_data.player_scores = score_data.player_scores.sort(
@@ -94,6 +95,7 @@ export const GameView = () => {
 
     es.current.addEventListener("round-end", (event) => {
       const round_data = JSON.parse(event.data);
+      console.log(round_data);
       setRoundData(round_data);
     });
 

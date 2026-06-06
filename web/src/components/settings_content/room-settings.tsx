@@ -199,10 +199,15 @@ const RoomSettings = () => {
                           strokeWidth={1.5}
                           size="1em"
                         />
-                        <ItemTitle>
-                          {player.username == username
-                            ? player.username + " (ME)"
-                            : player.username}
+                        <ItemTitle className="gap-1">
+                          {player.username == username ? (
+                            <>
+                              {player.username}
+                              <span className="font-bold">(ME)</span>
+                            </>
+                          ) : (
+                            player.username
+                          )}
                         </ItemTitle>
                       </ItemContent>
                     </div>
