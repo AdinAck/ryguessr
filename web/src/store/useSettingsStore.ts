@@ -136,10 +136,11 @@ export const playerActions = {
     useGameSession.setState({ activeIconColor: color });
   },
 
-  setSessionData: (name: string, color: string) => {
-    useGameSession.setState({
-      activeUsername: name,
-      activeIconColor: color,
-    });
+  setActiveUsername: (activeUsername: string) => {
+    useGameSession.setState({ activeUsername });
+  },
+
+  setActiveColor: (activeIconColor: string) => {
+    useGameSession.setState({ activeIconColor });
   },
 };

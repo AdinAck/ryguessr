@@ -73,7 +73,7 @@ const RoomSettings = () => {
         throw new Error(`Room join request failed status: ${response.status}`);
       }
       const joinResponse: PlayerData = await response.json();
-      playerActions.saveCustomColor(joinResponse.color);
+      playerActions.setActiveColor(joinResponse.color);
       RoomSettingsActions.updateRoomCode(requestedRoomCode);
       refreshSseEventStream.emit();
       setRoomCodeInput(requestedRoomCode);
