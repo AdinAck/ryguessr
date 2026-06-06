@@ -34,10 +34,12 @@ const RoomSettings = () => {
   const [requestStatusCode, setRequestStatusCode] = useState<StatusCodes>(
     StatusCodes.OK,
   );
+  const [isPeeking, setIsPeeking] = useState<boolean>(false);
   const [playerData, setPlayerData] = useState<PlayerData[]>([]);
   const username = useGameSession((state) => state.activeUsername);
 
   const roomPeek = useCallback(async (roomCode: string) => {
+    setIsPeeking(true);
     try {
       const response = await fetch(`api/room/${roomCode}`, {
         method: "GET",
@@ -53,6 +55,7 @@ const RoomSettings = () => {
     } catch (error) {
       throw new Error(`Network error peeking into room: ${error}`);
     } finally {
+      setIsPeeking(false);
     }
   }, []);
 
@@ -88,7 +91,7 @@ const RoomSettings = () => {
 
   const tryRoomCode = (roomCodeCapture: string) => {
     setRoomCodeInput(roomCodeCapture);
-    if (roomCodeCapture.length == 4 && roomCodeCapture != roomCode) {
+    if (roomCodeCapture.length == 4) {
       roomPeek(roomCodeCapture.toUpperCase());
     }
   };
@@ -97,7 +100,9 @@ const RoomSettings = () => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const submittedRoomCode = formData.get("room_code") as string;
-    handleRoomJoinRequest(submittedRoomCode.toUpperCase());
+    if (submittedRoomCode != roomCode) {
+      handleRoomJoinRequest(submittedRoomCode.toUpperCase());
+    }
   };
 
   useSignal(refreshPlayerList, () => {
@@ -169,43 +174,46 @@ const RoomSettings = () => {
         <Separator />
       </form>
 
-      {playerData.length > 0 && roomCodeInput.length == 4 && (
-        <>
-          <p className="text-lg font-medium">Players</p>
-          <Separator />
-          <div className="flex flex-col w-full gap-3 overflow-y-auto">
-            {playerData &&
-              playerData.map((player: PlayerData) => {
-                return (
-                  <Item
-                    variant="outline"
-                    className="flex flex-row justify-between items-center"
-                    key={player.username}
-                  >
-                    <div>
-                      <ItemContent
-                        key={player.username}
-                        className="flex flex-row gap-3 text-xl justify-between"
-                      >
-                        <MapPin
-                          color={player.color}
-                          strokeWidth={1.5}
-                          size="1em"
-                        />
-                        <ItemTitle>
-                          {player.username == username
-                            ? player.username + " (ME)"
-                            : player.username}
-                        </ItemTitle>
-                      </ItemContent>
-                    </div>
-                    <p className="text-gray-300">{player.score}</p>
-                  </Item>
-                );
-              })}
-          </div>
-        </>
-      )}
+      {!isPeeking &&
+        requestStatusCode == StatusCodes.OK &&
+        playerData.length > 0 &&
+        roomCodeInput.length == 4 && (
+          <>
+            <p className="text-lg font-medium">Players</p>
+            <Separator />
+            <div className="flex flex-col w-full gap-3 overflow-y-auto">
+              {playerData &&
+                playerData.map((player: PlayerData) => {
+                  return (
+                    <Item
+                      variant="outline"
+                      className="flex flex-row justify-between items-center"
+                      key={player.username}
+                    >
+                      <div>
+                        <ItemContent
+                          key={player.username}
+                          className="flex flex-row gap-3 text-xl justify-between"
+                        >
+                          <MapPin
+                            color={player.color}
+                            strokeWidth={1.5}
+                            size="1em"
+                          />
+                          <ItemTitle>
+                            {player.username == username
+                              ? player.username + " (ME)"
+                              : player.username}
+                          </ItemTitle>
+                        </ItemContent>
+                      </div>
+                      <p className="text-gray-300">{player.score}</p>
+                    </Item>
+                  );
+                })}
+            </div>
+          </>
+        )}
     </>
   );
 };
