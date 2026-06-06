@@ -181,37 +181,35 @@ const RoomSettings = () => {
           <>
             <p className="text-lg font-medium">Players</p>
             <Separator />
-            <div className="flex flex-col w-full gap-3 overflow-y-auto">
-              {playerData &&
-                playerData.map((player: PlayerData) => {
-                  return (
-                    <Item
-                      variant="outline"
-                      className="flex flex-row justify-between items-center"
-                      key={player.username}
-                    >
-                      <div>
-                        <ItemContent
-                          key={player.username}
-                          className="flex flex-row gap-3 text-xl justify-between"
-                        >
-                          <MapPin
-                            color={player.color}
-                            strokeWidth={1.5}
-                            size="1em"
-                          />
-                          <ItemTitle>
-                            {player.username == username
-                              ? player.username + " (ME)"
-                              : player.username}
-                          </ItemTitle>
-                        </ItemContent>
-                      </div>
-                      <p className="text-gray-300">{player.score}</p>
-                    </Item>
-                  );
-                })}
-            </div>
+            {playerData &&
+              playerData.map((player: PlayerData) => {
+                return (
+                  <Item
+                    variant="outline"
+                    className="flex flex-row justify-between items-center"
+                    key={player.username}
+                  >
+                    <div>
+                      <ItemContent
+                        key={player.username}
+                        className="flex flex-row gap-3 text-xl justify-between"
+                      >
+                        <MapPin
+                          color={player.color}
+                          strokeWidth={1.5}
+                          size="1em"
+                        />
+                        <ItemTitle>
+                          {player.username == username
+                            ? player.username + " (ME)"
+                            : player.username}
+                        </ItemTitle>
+                      </ItemContent>
+                    </div>
+                    <p className="text-gray-300">{player.score}</p>
+                  </Item>
+                );
+              })}
           </>
         )}
     </>
