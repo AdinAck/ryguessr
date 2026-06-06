@@ -1,18 +1,18 @@
 "use client";
+import { useState, useEffect, useCallback } from "react";
 import { Separator } from "../ui/separator";
 import { Item, ItemContent, ItemTitle } from "../ui/item";
 import { MapPin } from "lucide-react";
 import { Field } from "../ui/field";
 import { Button } from "../ui/button";
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
 
 // Zustand useRoomSettings
 import {
-  useGameSession,
   playerActions,
   RoomSettingsActions,
   useRoomSettings,
+  useGameSession,
 } from "@/store/useSettingsStore";
 
 // Error Code enum
@@ -31,10 +31,9 @@ const RoomSettings = () => {
     StatusCodes.OK,
   );
   const [playerData, setPlayerData] = useState<PlayerData[]>([]);
-
   const username = useGameSession((state) => state.activeUsername);
 
-  const roomPeek = async (roomCode: string) => {
+  const roomPeek = useCallback(async (roomCode: string) => {
     try {
       const response = await fetch(`api/room/${roomCode}`, {
         method: "GET",
@@ -51,7 +50,11 @@ const RoomSettings = () => {
       throw new Error(`Network error peeking into room: ${error}`);
     } finally {
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    roomPeek(roomCode);
+  }, [roomPeek]);
 
   const handleRoomJoinRequest = async (requestedRoomCode: string) => {
     try {
@@ -66,18 +69,12 @@ const RoomSettings = () => {
       if (!response.ok) {
         throw new Error(`Room join request failed status: ${response.status}`);
       }
-      const joinResponse: PlayerData[] = await response.json();
-      RoomSettingsActions.updateRoomCode(requestedRoomCode);
-      for (const value of Object.values(joinResponse)) {
-        for (const [k, v] of Object.entries(value)) {
-          if (k == "username" && v.toLowerCase() == username.toLowerCase()) {
-            playerActions.saveCustomColor(value.color);
-          }
-        }
-      }
-      setPlayerData(joinResponse);
+      const joinResponse: PlayerData = await response.json();
       refreshSseEventStream.emit();
+      RoomSettingsActions.updateRoomCode(requestedRoomCode);
+      playerActions.saveCustomColor(joinResponse.color);
       setRoomCodeInput(requestedRoomCode);
+      roomPeek(requestedRoomCode);
     } catch (error) {
       throw new Error(
         `Network error while attempting to join a room: ${error}`,
@@ -91,9 +88,6 @@ const RoomSettings = () => {
     if (roomCodeCapture.length == 4 && roomCodeCapture != roomCode) {
       roomPeek(roomCodeCapture.toUpperCase());
     }
-    // else if (roomCodeCapture.length == 3) {
-    //   setPlayerData([]);
-    // }
   };
 
   const handleRoomCodeSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -154,30 +148,36 @@ const RoomSettings = () => {
         <>
           <p className="text-lg font-medium">Players</p>
           <Separator />
-          <div className="flex flex-col w-full">
-            <Item variant="outline">
-              <ItemContent className="flex flex-row justify-between">
-                {playerData &&
-                  playerData.map((player: PlayerData) => {
-                    return (
-                      <>
-                        <div
-                          key={player.username}
-                          className="flex flex-row gap-3 text-xl items-center"
-                        >
-                          <MapPin
-                            color={player.color}
-                            strokeWidth={1.5}
-                            size="1em"
-                          />
-                          <ItemTitle>{player.username}</ItemTitle>
-                        </div>
-                        <p className="text-gray-300">{player.score}</p>
-                      </>
-                    );
-                  })}
-              </ItemContent>
-            </Item>
+          <div className="flex flex-col w-full gap-3 overflow-y-auto">
+            {playerData &&
+              playerData.map((player: PlayerData) => {
+                return (
+                  <Item
+                    variant="outline"
+                    className="flex flex-row justify-between items-center"
+                    key={player.username}
+                  >
+                    <div>
+                      <ItemContent
+                        key={player.username}
+                        className="flex flex-row gap-3 text-xl justify-between"
+                      >
+                        <MapPin
+                          color={player.color}
+                          strokeWidth={1.5}
+                          size="1em"
+                        />
+                        <ItemTitle>
+                          {player.username == username
+                            ? player.username + " (ME)"
+                            : player.username}
+                        </ItemTitle>
+                      </ItemContent>
+                    </div>
+                    <p className="text-gray-300">{player.score}</p>
+                  </Item>
+                );
+              })}
           </div>
         </>
       )}
