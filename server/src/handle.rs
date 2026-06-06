@@ -13,6 +13,8 @@ pub struct Handle {
     pub username: String,
     /// The color assigned to the client, persisted across rooms.
     pub color: PlayerColor,
+    /// Uuid to identify currently active SSE stream
+    pub session: Option<Uuid>,
 }
 
 /// The unique identifier for a [`Handle`].

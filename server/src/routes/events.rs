@@ -10,6 +10,7 @@ use axum::{
 use futures_util::{Stream, StreamExt};
 use tokio_stream::wrappers::BroadcastStream;
 use tracing::{debug, error};
+use uuid::Uuid;
 
 use crate::event::Recipients;
 use crate::{Context, RoomEvent, event::RoundStartData, handle, room};
@@ -22,6 +23,7 @@ pub struct EventStream<S> {
     context: Context,
     client_id: handle::Id,
     room_id: room::Id,
+    session: Uuid,
 }
 
 impl<S: Stream> Stream for EventStream<S> {
@@ -41,9 +43,12 @@ impl<S> PinnedDrop for EventStream<S> {
         let context = self.context.clone();
         let client_id = self.client_id.clone();
         let room_id = self.room_id.clone();
+        let session = self.session;
 
         tokio::spawn(async move {
-            context.on_sse_disconnect(&client_id, &room_id).await;
+            context
+                .on_sse_disconnect(&client_id, &room_id, session)
+                .await;
         });
     }
 }
@@ -53,11 +58,16 @@ pub async fn sse_event_handler(
     State(context): State<Context>,
     client_id: handle::Id,
 ) -> Result<Sse<impl Stream<Item = Result<sse::Event, axum::Error>>>, StatusCode> {
+    let session = Uuid::new_v4();
+
     let mut model = context.model.write().await;
+
     let handle = model
         .clients
-        .get(&client_id)
+        .get_mut(&client_id)
         .ok_or(StatusCode::UNAUTHORIZED)?;
+    handle.session = Some(session);
+
     let room_id = handle.room.clone();
     let room = model.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)?;
     room.connect();
@@ -96,6 +106,7 @@ pub async fn sse_event_handler(
         context: context.clone(),
         client_id: client_id.clone(),
         room_id,
+        session,
     };
 
     room.event_tx.send(initial_event.into()).unwrap();

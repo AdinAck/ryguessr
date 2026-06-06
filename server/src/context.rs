@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use axum::http::StatusCode;
 use colors::Srgb8;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
 use crate::{
     Handle, Room,
@@ -52,20 +53,28 @@ impl Context {
     /// Handle the end of an SSE stream: drop the room's connection count,
     /// remove the client if they're still bound to this room, and arm
     /// cleanup if the room is now idle.
-    pub async fn on_sse_disconnect(&self, client_id: &handle::Id, room_id: &room::Id) {
+    pub async fn on_sse_disconnect(
+        &self,
+        client_id: &handle::Id,
+        room_id: &room::Id,
+        session: Uuid,
+    ) {
         let mut model = self.model.write().await;
 
         if let Some(room) = model.rooms.get_mut(room_id) {
             room.disconnect();
         }
 
-        let still_in_room = model
+        let is_active_session = model
             .clients
             .get(client_id)
-            .is_some_and(|h| &h.room == room_id);
-        if still_in_room {
+            .is_some_and(|h| &h.room == room_id && h.session == Some(session));
+
+        if is_active_session {
             model.remove_client(client_id);
             tracing::info!(client_id = %**client_id, "client disconnected, removed from room");
+        } else {
+            tracing::debug!(client_id = %**client_id, "ignoring stale sse disconnect (already another session)");
         }
 
         if model.rooms.get(room_id).is_some_and(Room::is_idle) {
@@ -318,6 +327,7 @@ impl Model {
                 room: room_id.clone(),
                 username,
                 color,
+                session: None,
             },
         );
 
