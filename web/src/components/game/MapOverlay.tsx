@@ -28,6 +28,8 @@ export const MapOverlay = memo(function MapOverlay({
   handleContinue,
   shownScoreboard,
   handleScoreboard,
+  mapExpanded,
+  handleSetMapExpanded,
 }: MapOverlayProps) {
   const [selectedLocation, setSelectedLocation] = useState<Coordinates | null>(
     null,
@@ -130,6 +132,15 @@ export const MapOverlay = memo(function MapOverlay({
       <div
         className={`${roundData?.player_results && shownScoreboard ? "blur-sm pointer-events-none" : undefined} flex-grow w-full rounded-lg overflow-hidden border-2 shadow-xl relative z-0`}
       >
+        {!mapExpanded && (
+          <div
+            className="absolute sm:hidden inset-0 z-20 cursor-pointer bg-transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSetMapExpanded(true);
+            }}
+          />
+        )}
         <GoogleMap
           mapContainerStyle={mapContainerStyle}
           onLoad={onLoad}
@@ -226,7 +237,7 @@ export const MapOverlay = memo(function MapOverlay({
       <div className="w-full z-10 rounded-lg bg-background transition-transform duration-150 ease-in-out active:scale-95">
         <Button
           className={
-            "w-full bg-background text-white tracking-widest shadow-lg"
+            "w-full bg-background text-white text-xs sm:text-base tracking-widest shadow-lg"
           }
           size={"default"}
           variant={"outline"}
@@ -257,7 +268,3 @@ export const MapOverlay = memo(function MapOverlay({
     </div>
   );
 });
-
-{
-  /* : shownScoreboard ? "Continue" */
-}

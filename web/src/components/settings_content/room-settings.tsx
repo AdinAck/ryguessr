@@ -143,7 +143,7 @@ const RoomSettings = () => {
         onSubmit={(e) => handleRoomCodeSubmit(e)}
       >
         <Input
-          className={`!bg-transparent not-focus:text-7xl tracking-wider border-none select-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-7xl placeholder:text-white focus:text-7xl font-semibold h-fit max-w-full uppercase placeholder:tracking-wider ${getTextColorClass()}`}
+          className={`!bg-transparent not-focus:text-6xl sm:not-focus:text-7xl tracking-wider border-none select-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-6xl sm:placeholder:text-7xl placeholder:text-white focus:text-6xl sm:focus:text-7xl font-semibold h-fit max-w-full uppercase placeholder:tracking-wider ${getTextColorClass()}`}
           id="input-field-roomcode"
           name="room_code"
           type="text"
@@ -192,20 +192,20 @@ const RoomSettings = () => {
                 return (
                   <Item
                     variant="outline"
-                    className="flex flex-row justify-between items-center"
+                    className="flex flex-row justify-between items-center flex-wrap h-fit"
                     key={player.username}
                   >
                     <div>
                       <ItemContent
                         key={player.username}
-                        className="flex flex-row gap-3 text-xl justify-between"
+                        className="flex flex-row gap-3 justify-between items-center"
                       >
                         <MapPin
                           color={player.color}
                           strokeWidth={1.5}
-                          size="1em"
+                          className="text-xs sm:text-base"
                         />
-                        <ItemTitle className="gap-1">
+                        <ItemTitle className="gap-1 text-xs sm:text-base">
                           {player.username == username ? (
                             <>
                               {player.username}
@@ -217,7 +217,9 @@ const RoomSettings = () => {
                         </ItemTitle>
                       </ItemContent>
                     </div>
-                    <p className="text-gray-300">{player.score}</p>
+                    <p className="text-gray-300 text-xs sm:text-base">
+                      {player.score}
+                    </p>
                   </Item>
                 );
               })}
