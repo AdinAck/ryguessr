@@ -55,7 +55,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="z-[99] w-md md:w-xl lg:w-2xl h-[50dvh] min-h-[400px] max-h-[800px] flex flex-row border-2 rounded-lg bg-background ">
+    <div className="z-[99] w-sm md:w-xl lg:w-2xl h-[50dvh] min-h-[400px] max-h-[800px] flex flex-row border-2 rounded-lg bg-background ">
       <div
         dir="ltr"
         className="flex flex-col grow-0.5 gap-2 p-2 rounded-s-lg"
