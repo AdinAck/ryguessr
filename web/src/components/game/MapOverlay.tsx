@@ -237,7 +237,7 @@ export const MapOverlay = memo(function MapOverlay({
       <div className="w-full z-10 rounded-lg bg-background transition-transform duration-150 ease-in-out active:scale-95">
         <Button
           className={
-            "w-full bg-background text-white tracking-widest shadow-lg"
+            "w-full bg-background text-white text-xs sm:text-base tracking-widest shadow-lg"
           }
           size={"default"}
           variant={"outline"}
