@@ -6,7 +6,7 @@ import { EventSource } from "eventsource";
 import { Scoreboard } from "./Scoreboard";
 import { Button } from "@/components/ui/button";
 import Settings from "@/components/game/Settings";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, isEasingArray } from "framer-motion";
 // Type Data
 import RoundData from "@/types/round-data";
 import ScoreData from "@/types/score-data";
@@ -42,6 +42,9 @@ export const GameView = () => {
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [shownScoreboard, setShownScoreboard] = useState<boolean>(false);
   const [notifications, addNotifications] = useState<NotificationItem[]>([]);
+  const [mapExpanded, setMapExpanded] = useState<boolean>(false);
+  const mapRef = useRef<HTMLDivElement>(null);
+
   const es = useRef<EventSource | null>(null);
 
   const settingsVisibility = useSettingsState(
@@ -160,6 +163,7 @@ export const GameView = () => {
 
   const handleContinue = useCallback(async () => {
     setHasContinued(true);
+    setMapExpanded(false);
     const response = await fetch("/api/next", {
       method: "POST",
       headers: {},
@@ -175,6 +179,26 @@ export const GameView = () => {
 
   const removeNotification = (id: string) => {
     addNotifications((prev) => prev.filter((noti) => noti.id !== id));
+  };
+
+  useEffect(() => {
+    function handleClickOutside(event: PointerEvent) {
+      if (mapRef.current && !mapRef.current.contains(event.target as Node)) {
+        setMapExpanded(false);
+      }
+    }
+
+    if (mapExpanded) {
+      document.addEventListener("pointerdown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("pointerdown", handleClickOutside);
+    };
+  }, [mapExpanded]);
+
+  const handleSetMapExpanded = (mapExpanded: boolean) => {
+    setMapExpanded(mapExpanded);
   };
 
   return (
@@ -216,7 +240,13 @@ export const GameView = () => {
         className={`${shownScoreboard && score_data ? "blur-sm pointer-events-none" : undefined} absolute inset-0 z-0`}
       >
         {location ? (
-          <Streetview panoId={panoId} />
+          <>
+            {mapExpanded && (
+              <div className="sm:hidden absolute inset-0 z-10 cursor-default bg-transparent" />
+            )}
+
+            <Streetview panoId={panoId} />
+          </>
         ) : (
           <p className="text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
             Loading ....
@@ -224,17 +254,21 @@ export const GameView = () => {
         )}
       </div>
       <div
-        className={` bottom-5 left-5 flex flex-col gap-2 absolute z-10 aspect-video transition-all duration-300 origin-bottom-left 
+        ref={mapRef}
+        className={` bottom-5 left-5 flex flex-col gap-2 absolute z-10 sm:aspect-video transition-all duration-300 origin-bottom-left 
           ${
             roundData && !shownScoreboard
               ? " w-[calc(100vw-2.5rem)] max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
               : shownScoreboard
                 ? "w-40 md:w-64 lg:w-90 opacity-90 "
-                : "w-40 md:w-64 lg:w-90 opacity-90 hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
+                : mapExpanded
+                  ? "w-[calc(100vw-2.5rem)] h-[50dvh] opacity-100, ease-in-out"
+                  : "w-40 h-28 sm:h-auto md:w-64 lg:w-90 opacity-90 sm:hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
           }`}
       >
         <MapOverlay
           key={`map-round${roundNumber}`}
+          mapExpanded={mapExpanded}
           handleScoreboard={handleScoreboard}
           shownScoreboard={shownScoreboard}
           roundData={roundData}
@@ -242,6 +276,7 @@ export const GameView = () => {
           hasGuessed={hasGuessed}
           handleGuess={handleGuess}
           handleContinue={handleContinue}
+          handleSetMapExpanded={handleSetMapExpanded}
         />{" "}
       </div>
       {score_data && shownScoreboard && (
