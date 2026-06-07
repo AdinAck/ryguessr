@@ -24,16 +24,16 @@ export const Scoreboard = memo(function Scoreboard({
   }, []);
 
   return (
-    <div className="flex flex-col gap-3 w-[50vw] h-full max-h-[40vh] overflow-y-auto pr-2">
+    <div className="flex flex-col gap-3 w-[90vw] sm:w-[50vw] h-full max-h-[40vh] overflow-y-auto pr-2">
       {score_data.player_scores.map((score) => {
         return (
           <div
             key={score.name}
             className="py-3 px-3 flex justify-between items-center w-full bg-black/80 border-2 rounded-lg text-white shadow-md"
           >
-            <div className="flex text-md flex-row items-center gap-3">
+            <div className="flex flex-row items-center gap-3">
               <MapPin color={score.IconColor} strokeWidth={1.5} />
-              <span className="flex items-center gap-1">
+              <span className="text-sm sm:text-base flex items-center gap-1">
                 {score.name === username ? (
                   <>
                     {score.name} <span className="font-bold">(ME)</span>
