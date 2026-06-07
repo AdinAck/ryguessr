@@ -258,7 +258,7 @@ export const GameView = () => {
         className={` bottom-5 left-5 flex flex-col gap-2 absolute z-10 sm:aspect-video transition-all duration-300 origin-bottom-left 
           ${
             roundData && !shownScoreboard
-              ? " w-[calc(100vw-2.5rem)] max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
+              ? " h-[calc(100dvh-2.5rem)] w-[calc(100vw-2.5rem)] sm:max-h-[calc(100vh-2.5rem)] opacity-100 ease-out"
               : shownScoreboard
                 ? "w-40 md:w-64 lg:w-90 opacity-90 "
                 : mapExpanded
