@@ -94,11 +94,12 @@ export const GameView = () => {
       setHasContinued(false);
       setShownScoreboard(false);
       setRoundData(undefined);
+      setMapExpanded(false);
     });
 
     es.current.addEventListener("round-end", (event) => {
       const round_data = JSON.parse(event.data);
-      console.log(round_data);
+      setMapExpanded(true);
       setRoundData(round_data);
     });
 
