@@ -1,13 +1,13 @@
 use std::pin::Pin;
 use std::time::Duration;
 
-use axum::http::StatusCode;
+use axum::body::Body;
+use axum::http::{Response, StatusCode};
+use axum::response::IntoResponse;
 use axum::response::sse::KeepAlive;
-use axum::{
-    extract::State,
-    response::{Sse, sse},
-};
+use axum::{extract::State, response::Sse};
 use futures_util::{Stream, StreamExt};
+use reqwest::header;
 use tokio_stream::wrappers::BroadcastStream;
 use tracing::{debug, error};
 use uuid::Uuid;
@@ -57,7 +57,7 @@ impl<S> PinnedDrop for EventStream<S> {
 pub async fn sse_event_handler(
     State(context): State<Context>,
     client_id: handle::Id,
-) -> Result<Sse<impl Stream<Item = Result<sse::Event, axum::Error>>>, StatusCode> {
+) -> Result<Response<Body>, StatusCode> {
     let session = Uuid::new_v4();
 
     let mut model = context.model.write().await;
@@ -116,9 +116,20 @@ pub async fn sse_event_handler(
         })
         .unwrap();
 
-    Ok(Sse::new(event_stream).keep_alive(
+    let sse = Sse::new(event_stream).keep_alive(
         KeepAlive::new()
             .interval(Duration::from_secs(15))
             .text("keep-alive"),
-    ))
+    );
+    let mut response = sse.into_response();
+    // headers for cloudflare or reverse proxies that buffer responses by default
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        "no-cache, no-transform".parse().unwrap(),
+    );
+    response
+        .headers_mut()
+        .insert("X-Accel-Buffering", "no".parse().unwrap());
+
+    Ok(response)
 }
