@@ -293,7 +293,7 @@ impl<'de> Deserialize<'de> for Id {
         if len != ROOM_ID_LENGTH {
             return Err(serde::de::Error::invalid_length(
                 s.chars().count(),
-                &"a string of exactly 5 characters",
+                &"a string of exactly 4 characters",
             ));
         }
         Ok(Self(s))
