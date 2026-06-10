@@ -199,26 +199,29 @@ impl Room {
         let Some(member) = self.members.get_mut(client_id) else {
             return;
         };
+        // If they already guessed
+        if member.guess.is_some() {
+            return;
+        }
 
-        let distance = score::haversine_distance(&guess, &self.location.coordinates);
-        let points = score::calculate_score(distance);
-
-        member.score += points as u32;
         member.guess = Some(guess);
 
-        // Check if everyone has guessed
         let all_guessed = self.members.values().all(|m| m.guess.is_some());
         if all_guessed {
             let player_results = self
                 .members
-                .values()
+                .values_mut()
                 .map(|m| {
                     let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
                     let distance =
                         score::haversine_distance(&guess_location, &self.location.coordinates);
                     let round_score = score::calculate_score(distance) as u32;
+
+                    // Update actual members
+                    m.score += round_score;
+
                     PlayerResult {
-                        player: PlayerData::from(m),
+                        player: (&*m).into(),
                         round_score,
                         distance,
                         guess_location,
