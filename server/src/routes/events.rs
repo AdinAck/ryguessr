@@ -12,7 +12,7 @@ use tokio_stream::wrappers::BroadcastStream;
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::event::Recipients;
+use crate::event::{EventEnvelope, Recipients};
 use crate::{Context, RoomEvent, event::RoundStartData, handle, room};
 
 #[pin_project::pin_project(PinnedDrop)]
@@ -109,7 +109,12 @@ pub async fn sse_event_handler(
         session,
     };
 
-    room.event_tx.send(initial_event.into()).unwrap();
+    room.event_tx
+        .send(EventEnvelope {
+            event: initial_event,
+            recipients: Recipients::only_one(client_id),
+        })
+        .unwrap();
 
     Ok(Sse::new(event_stream).keep_alive(
         KeepAlive::new()
