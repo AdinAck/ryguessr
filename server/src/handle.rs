@@ -1,5 +1,8 @@
 use axum::{extract::FromRequestParts, http::StatusCode};
-use axum_extra::extract::{CookieJar, cookie::Cookie};
+use axum_extra::extract::{
+    CookieJar,
+    cookie::{Cookie, SameSite},
+};
 use derive_more::{AsRef, Deref};
 use uuid::Uuid;
 
@@ -33,7 +36,8 @@ impl Id {
         Cookie::build((ID_COOKIE_NAME, self.0.clone()))
             .path("/")
             .http_only(true)
-            // .secure(true)
+            .secure(true)
+            .same_site(SameSite::Lax)
             .build()
     }
 }

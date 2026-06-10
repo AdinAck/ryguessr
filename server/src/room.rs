@@ -53,7 +53,7 @@ impl Room {
         username: String,
         color_override: Option<Srgb8>,
     ) -> Self {
-        let (event_tx, _) = broadcast::channel(16);
+        let (event_tx, _) = broadcast::channel(256);
         let mut colors = DistinctColors::new();
         let color = match color_override {
             Some(srgb) => {
@@ -199,43 +199,57 @@ impl Room {
         let Some(member) = self.members.get_mut(client_id) else {
             return;
         };
+        // If they already guessed
+        if member.guess.is_some() {
+            return;
+        }
 
-        let distance = score::haversine_distance(&guess, &self.location.coordinates);
-        let points = score::calculate_score(distance);
-
-        member.score += points as u32;
         member.guess = Some(guess);
 
-        // Check if everyone has guessed
-        let all_guessed = self.members.values().all(|m| m.guess.is_some());
-        if all_guessed {
-            let player_results = self
-                .members
-                .values()
-                .map(|m| {
-                    let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
-                    let distance =
-                        score::haversine_distance(&guess_location, &self.location.coordinates);
-                    let round_score = score::calculate_score(distance) as u32;
-                    PlayerResult {
-                        player: PlayerData::from(m),
-                        round_score,
-                        distance,
-                        guess_location,
-                    }
-                })
-                .collect();
+        self.decide_round();
+    }
 
-            let event = RoomEvent::RoundEnd(RoundEndData {
-                real_location: self.location.coordinates.clone(),
-                player_results,
-            });
-            let _ = self.event_tx.send(event.into());
+    pub fn decide_round(&mut self) {
+        if self.check_all_guessed() {
+            self.end_round();
+        }
+    }
 
-            // Reset guesses for next round
-            for member in self.members.values_mut() {
-                member.guess = None;
-            }
+    fn check_all_guessed(&self) -> bool {
+        self.members.values().all(|m| m.guess.is_some())
+    }
+
+    fn end_round(&mut self) {
+        let player_results = self
+            .members
+            .values_mut()
+            .map(|m| {
+                let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
+                let distance =
+                    score::haversine_distance(&guess_location, &self.location.coordinates);
+                let round_score = score::calculate_score(distance) as u32;
+
+                // Update actual members
+                m.score += round_score;
+
+                PlayerResult {
+                    player: (&*m).into(),
+                    round_score,
+                    distance,
+                    guess_location,
+                }
+            })
+            .collect();
+
+        let event = RoomEvent::RoundEnd(RoundEndData {
+            real_location: self.location.coordinates.clone(),
+            player_results,
+        });
+        let _ = self.event_tx.send(event.into());
+
+        // Reset guesses for next round
+        for member in self.members.values_mut() {
+            member.guess = None;
         }
     }
 }
@@ -290,7 +304,7 @@ impl<'de> Deserialize<'de> for Id {
         if len != ROOM_ID_LENGTH {
             return Err(serde::de::Error::invalid_length(
                 s.chars().count(),
-                &"a string of exactly 5 characters",
+                &"a string of exactly 4 characters",
             ));
         }
         Ok(Self(s))

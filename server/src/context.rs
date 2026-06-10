@@ -337,6 +337,7 @@ impl Model {
     fn remove_from_room(&mut self, client_id: &handle::Id, room_id: &room::Id) {
         if let Some(room) = self.rooms.get_mut(room_id) {
             room.remove_member(client_id);
+            room.decide_round();
         }
     }
 
