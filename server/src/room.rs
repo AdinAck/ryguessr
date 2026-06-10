@@ -53,7 +53,7 @@ impl Room {
         username: String,
         color_override: Option<Srgb8>,
     ) -> Self {
-        let (event_tx, _) = broadcast::channel(16);
+        let (event_tx, _) = broadcast::channel(256);
         let mut colors = DistinctColors::new();
         let color = match color_override {
             Some(srgb) => {
