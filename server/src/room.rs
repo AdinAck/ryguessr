@@ -206,39 +206,50 @@ impl Room {
 
         member.guess = Some(guess);
 
-        let all_guessed = self.members.values().all(|m| m.guess.is_some());
-        if all_guessed {
-            let player_results = self
-                .members
-                .values_mut()
-                .map(|m| {
-                    let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
-                    let distance =
-                        score::haversine_distance(&guess_location, &self.location.coordinates);
-                    let round_score = score::calculate_score(distance) as u32;
+        self.decide_round();
+    }
 
-                    // Update actual members
-                    m.score += round_score;
+    pub fn decide_round(&mut self) {
+        if self.check_all_guessed() {
+            self.end_round();
+        }
+    }
 
-                    PlayerResult {
-                        player: (&*m).into(),
-                        round_score,
-                        distance,
-                        guess_location,
-                    }
-                })
-                .collect();
+    fn check_all_guessed(&self) -> bool {
+        self.members.values().all(|m| m.guess.is_some())
+    }
 
-            let event = RoomEvent::RoundEnd(RoundEndData {
-                real_location: self.location.coordinates.clone(),
-                player_results,
-            });
-            let _ = self.event_tx.send(event.into());
+    fn end_round(&mut self) {
+        let player_results = self
+            .members
+            .values_mut()
+            .map(|m| {
+                let guess_location = m.guess.clone().unwrap(); // Safe unwrap()
+                let distance =
+                    score::haversine_distance(&guess_location, &self.location.coordinates);
+                let round_score = score::calculate_score(distance) as u32;
 
-            // Reset guesses for next round
-            for member in self.members.values_mut() {
-                member.guess = None;
-            }
+                // Update actual members
+                m.score += round_score;
+
+                PlayerResult {
+                    player: (&*m).into(),
+                    round_score,
+                    distance,
+                    guess_location,
+                }
+            })
+            .collect();
+
+        let event = RoomEvent::RoundEnd(RoundEndData {
+            real_location: self.location.coordinates.clone(),
+            player_results,
+        });
+        let _ = self.event_tx.send(event.into());
+
+        // Reset guesses for next round
+        for member in self.members.values_mut() {
+            member.guess = None;
         }
     }
 }
