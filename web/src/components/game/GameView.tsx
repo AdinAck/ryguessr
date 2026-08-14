@@ -264,7 +264,7 @@ export const GameView = () => {
                 ? "w-40 md:w-64 lg:w-90 opacity-90 "
                 : mapExpanded
                   ? "w-[calc(100vw-2.5rem)] h-[50dvh] opacity-100, ease-in-out"
-                  : "w-40 h-28 sm:h-auto md:w-64 lg:w-90 opacity-90 sm:hover:w-[50vw] xl:hover:w-[40vw] ease-in-out"
+                  : "w-40 h-28 sm:h-auto md:w-64 lg:w-90 opacity-90 sm:hover:w-[50vw] xl:hover:w-[50vw] ease-in-out"
           }`}
       >
         <MapOverlay

@@ -35,6 +35,14 @@ export const MapOverlay = memo(function MapOverlay({
     null,
   );
 
+  const markerAudio = useMemo(() => {
+    return new Audio("/audio/place-marker.mp3");
+  }, [selectedLocation]);
+
+  const lockAudio = useMemo(() => {
+    return new Audio("/audio/lock-guess.mp3");
+  }, []);
+
   const activeIconColor = useGameSession((state) => state.activeIconColor);
 
   const { userIconOptions, poly_color } = useMemo(() => {
@@ -82,6 +90,7 @@ export const MapOverlay = memo(function MapOverlay({
     if (e.latLng) {
       setSelectedLocation({ lat: e.latLng.lat(), lng: e.latLng.lng() });
     }
+    markerAudio.play();
   }, []);
 
   const onLoad = useCallback((map: google.maps.Map) => {
@@ -94,6 +103,7 @@ export const MapOverlay = memo(function MapOverlay({
   const handleMapPanOnGuess = () => {
     if (!selectedLocation) return;
     handleGuess(true, selectedLocation);
+    lockAudio.play();
   };
 
   useEffect(() => {
