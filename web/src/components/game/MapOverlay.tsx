@@ -96,7 +96,7 @@ export const MapOverlay = memo(function MapOverlay({
       }
       if (markerAudioEnabled) markerAudio.play();
     },
-    [markerAudioEnabled],
+    [markerAudioEnabled, markerAudio],
   );
 
   const onLoad = useCallback((map: google.maps.Map) => {
