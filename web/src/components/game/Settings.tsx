@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import RoomSettings from "../settings_content/room-settings";
 import StreetviewSettings from "../settings_content/streetview-settings";
 import UsernameSettings from "../settings_content/username-settings";
+import AudioSettings from "../settings_content/audio-settings";
 
 // Zustand
 import { playerActions } from "@/store/useSettingsStore";
@@ -130,6 +131,7 @@ const Settings = () => {
             handleUsernameRequest={handleUsernameRequest}
           />
         )}
+        {currentSettingToggle === SettingsToggle.Audio && <AudioSettings />}
       </div>
     </div>
   );
