@@ -19,6 +19,7 @@ import PlayerResults from "@/types/player-results";
 
 // Zustand
 import { useGameSession } from "@/store/useSettingsStore";
+import { useAudioState } from "@/store/useSettingsStore";
 
 export const MapOverlay = memo(function MapOverlay({
   hasContinued,
@@ -34,6 +35,8 @@ export const MapOverlay = memo(function MapOverlay({
   const [selectedLocation, setSelectedLocation] = useState<Coordinates | null>(
     null,
   );
+
+  const { markerAudioEnabled, lockAudioEnabled } = useAudioState();
 
   const markerAudio = useMemo(() => {
     return new Audio("/audio/place-marker.mp3");
@@ -86,12 +89,15 @@ export const MapOverlay = memo(function MapOverlay({
     };
   }, [hasGuessed]);
 
-  const onMapClick = useCallback((e: google.maps.MapMouseEvent) => {
-    if (e.latLng) {
-      setSelectedLocation({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-    }
-    markerAudio.play();
-  }, []);
+  const onMapClick = useCallback(
+    (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) {
+        setSelectedLocation({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      }
+      if (markerAudioEnabled) markerAudio.play();
+    },
+    [markerAudioEnabled],
+  );
 
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -103,7 +109,7 @@ export const MapOverlay = memo(function MapOverlay({
   const handleMapPanOnGuess = () => {
     if (!selectedLocation) return;
     handleGuess(true, selectedLocation);
-    lockAudio.play();
+    if (lockAudioEnabled) lockAudio.play();
   };
 
   useEffect(() => {

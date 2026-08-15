@@ -37,7 +37,7 @@ const AudioSettings = () => {
         <Label htmlFor="panningGesturesEnabled">Marker Audio</Label>
         <Switch
           checked={markerAudio}
-          onCheckedChange={audioStateActions.setLockAudioEnabled}
+          onCheckedChange={audioStateActions.setMarkerAudioEnabled}
           id="markerAudioEnabled"
         />
       </div>
