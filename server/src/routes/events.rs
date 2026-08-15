@@ -62,14 +62,11 @@ pub async fn sse_event_handler(
 
     let mut model = context.model.write().await;
 
-    let handle = model
-        .clients
-        .get_mut(&client_id)
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let handle = model.client_mut(&client_id)?;
     handle.session = Some(session);
-
     let room_id = handle.room.clone();
-    let room = model.rooms.get_mut(&room_id).ok_or(StatusCode::NOT_FOUND)?;
+
+    let room = model.client_room_mut(&client_id)?;
     room.connect();
 
     let round = room.round;

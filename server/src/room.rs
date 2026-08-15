@@ -100,7 +100,7 @@ impl Room {
 
     /// Store the handle for a pending cleanup task, aborting any prior one so
     /// only the freshest timer is ever live.
-    pub(crate) fn arm_cleanup(&mut self, handle: JoinHandle<()>) {
+    pub fn arm_cleanup(&mut self, handle: JoinHandle<()>) {
         if let Some(prev) = self.cleanup_handle.replace(handle) {
             prev.abort();
         }
@@ -128,7 +128,7 @@ impl Room {
 
         let event = RoomEvent::PlayerJoined {
             client_id: client_id.clone(),
-            data: PlayerData::from(&new_member),
+            data: new_member.clone().into(),
         };
 
         self.members.insert(client_id.clone(), new_member);
@@ -139,7 +139,11 @@ impl Room {
     /// Snapshot of every member as `PlayerData`, suitable for sending to a
     /// client that needs to render the current roster.
     pub fn players(&self) -> Vec<PlayerData> {
-        self.members.values().map(PlayerData::from).collect()
+        self.members
+            .values()
+            .cloned()
+            .map(PlayerData::from)
+            .collect()
     }
 
     pub fn remove_member(&mut self, client_id: &handle::Id) {
@@ -233,7 +237,7 @@ impl Room {
                 m.score += round_score;
 
                 PlayerResult {
-                    player: (&*m).into(),
+                    player: m.clone().into(),
                     round_score,
                     distance,
                     guess_location,
@@ -255,6 +259,7 @@ impl Room {
 }
 
 /// The attributes of a member of a [`Room`].
+#[derive(Clone, Debug)]
 pub struct MemberAttributes {
     /// The display name of the member.
     pub username: String,
@@ -280,10 +285,10 @@ impl MemberAttributes {
     }
 }
 
-impl From<&MemberAttributes> for PlayerData {
-    fn from(m: &MemberAttributes) -> Self {
+impl From<MemberAttributes> for PlayerData {
+    fn from(m: MemberAttributes) -> Self {
         Self {
-            username: m.username.clone(),
+            username: m.username,
             color: m.color.srgb,
             score: m.score,
         }

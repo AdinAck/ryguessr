@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use axum::http::StatusCode;
 use colors::Srgb8;
@@ -6,13 +6,11 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
-    Handle, Room,
+    Model, Room,
     colors::PlayerColor,
     event::PlayerData,
     geo::{Location, engine::LocationEngine},
-    handle,
-    name_gen::NameGenerator,
-    room,
+    handle, room,
 };
 
 pub type SharedModel = Arc<RwLock<Model>>;
@@ -29,15 +27,6 @@ pub struct Context {
     pub engine: Arc<LocationEngine>,
     pub model: SharedModel,
     pub api_key: Arc<str>,
-}
-
-/// The in-memory state of the application. Methods on
-/// [`Model`] are synchronous, anything async or time-aware lives on [`Context`].
-#[derive(Default)]
-pub struct Model {
-    pub clients: HashMap<handle::Id, Handle>,
-    pub rooms: HashMap<room::Id, Room>,
-    pub name_generator: NameGenerator,
 }
 
 impl Context {
@@ -102,7 +91,7 @@ impl Context {
             .and_then(|r| r.members.get(client_id))
             .expect("client is in the room after a successful move");
 
-        Ok(member.into())
+        Ok(member.clone().into())
     }
 
     /// Create a new room with the given user as the first member. Arms the
@@ -154,275 +143,5 @@ impl Context {
             .expect("start_cleanup target room must exist while the write lock is held");
 
         room.arm_cleanup(handle);
-    }
-}
-
-impl Model {
-    pub fn generate_unique_name(&self) -> String {
-        let mut name = self.name_generator.generate();
-
-        // Check for collisions across all existing clients.
-        while self.clients.values().any(|c| c.username == name) {
-            name = self.name_generator.generate();
-        }
-
-        name
-    }
-
-    pub fn set_name(
-        &mut self,
-        client_id: &handle::Id,
-        new_username: String,
-    ) -> Result<(), StatusCode> {
-        // Check for name collision across all existing clients.
-        if self.clients.values().any(|c| c.username == new_username) {
-            return Err(StatusCode::CONFLICT);
-        }
-
-        // Update the client's name in the model.
-        let handle = self
-            .clients
-            .get_mut(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.username = new_username.clone();
-
-        // Update the client's name in their current room.
-        let room = self
-            .rooms
-            .get_mut(&handle.room)
-            .ok_or(StatusCode::NOT_FOUND)?;
-        if let Some(member) = room.members.get_mut(client_id) {
-            member.username = new_username;
-        }
-
-        Ok(())
-    }
-
-    pub fn set_color(
-        &mut self,
-        client_id: &handle::Id,
-        new_color: Srgb8,
-    ) -> Result<(), StatusCode> {
-        let handle = self
-            .clients
-            .get_mut(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?;
-        handle.color = PlayerColor {
-            srgb: new_color,
-            custom: true,
-        };
-
-        // Update the member's color in their current room
-        let room = self
-            .rooms
-            .get_mut(&handle.room)
-            .ok_or(StatusCode::NOT_FOUND)?;
-        if let Some(member) = room.members.get_mut(client_id) {
-            // Free the prior color so a future distinct pick can reuse it,
-            // then register the new custom pick so picks stay clear of it.
-            room.colors.remove_occupied(member.color.srgb);
-            room.colors.push_occupied(new_color);
-            member.color = PlayerColor::custom(new_color);
-        }
-
-        Ok(())
-    }
-
-    pub fn client_room_mut(&mut self, client_id: &handle::Id) -> Result<&mut Room, StatusCode> {
-        let room_id = self
-            .clients
-            .get(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?
-            .room
-            .clone();
-
-        self.room_mut(&room_id)
-    }
-
-    pub fn room(&self, room_id: &room::Id) -> Result<&Room, StatusCode> {
-        self.rooms.get(room_id).ok_or(StatusCode::NOT_FOUND)
-    }
-
-    pub fn room_mut(&mut self, room_id: &room::Id) -> Result<&mut Room, StatusCode> {
-        self.rooms.get_mut(room_id).ok_or(StatusCode::NOT_FOUND)
-    }
-
-    pub fn move_client_to_room(
-        &mut self,
-        client_id: &handle::Id,
-        new_room_id: &room::Id,
-    ) -> Result<(), StatusCode> {
-        let handle = self
-            .clients
-            .get(client_id)
-            .ok_or(StatusCode::UNAUTHORIZED)?;
-
-        if &handle.room == new_room_id {
-            return Ok(());
-        }
-
-        // Validate new room exists before making any changes
-        if !self.rooms.contains_key(new_room_id) {
-            return Err(StatusCode::NOT_FOUND);
-        }
-
-        let username = handle.username.clone();
-        let color_override = if handle.color.custom {
-            Some(handle.color.srgb)
-        } else {
-            None
-        };
-        let old_room_id = handle.room.clone();
-
-        self.remove_from_room(client_id, &old_room_id);
-
-        self.rooms
-            .get_mut(new_room_id)
-            .unwrap()
-            .add_member(client_id, username, color_override);
-
-        self.clients.get_mut(client_id).unwrap().room = new_room_id.clone();
-
-        Ok(())
-    }
-
-    pub fn remove_client(&mut self, client_id: &handle::Id) {
-        let Some(handle) = self.clients.remove(client_id) else {
-            return;
-        };
-        self.remove_from_room(client_id, &handle.room);
-    }
-
-    /// Insert a freshly created room with the given user as the first member.
-    /// Returns the new room id and the color assigned to the member.
-    pub fn insert_new_room(
-        &mut self,
-        location: Location,
-        client_id: handle::Id,
-        username: String,
-        color_override: Option<Srgb8>,
-    ) -> (room::Id, PlayerColor) {
-        let room_id = {
-            let mut id = room::Id::random();
-            while self.rooms.contains_key(&id) {
-                id = room::Id::random();
-            }
-            id
-        };
-
-        tracing::info!(room_id = %room_id.as_ref(), username = %username, "created new room");
-
-        let room = Room::new(
-            location,
-            client_id.clone(),
-            username.clone(),
-            color_override,
-        );
-        let color = room.members.get(&client_id).unwrap().color;
-
-        self.rooms.insert(room_id.clone(), room);
-        self.clients.insert(
-            client_id,
-            Handle {
-                room: room_id.clone(),
-                username,
-                color,
-                session: None,
-            },
-        );
-
-        (room_id, color)
-    }
-
-    fn remove_from_room(&mut self, client_id: &handle::Id, room_id: &room::Id) {
-        if let Some(room) = self.rooms.get_mut(room_id) {
-            room.remove_member(client_id);
-            room.decide_round();
-        }
-    }
-
-    /// If the room exists and is idle, drop it and remove any ghost clients
-    /// still pointing at it.
-    pub(crate) fn drop_room_if_idle(&mut self, room_id: &room::Id) {
-        if !self.rooms.get(room_id).is_some_and(Room::is_idle) {
-            return;
-        }
-        self.clients.retain(|_, h| &h.room != room_id);
-        self.rooms.remove(room_id);
-        tracing::info!(room_id = %room_id.as_ref(), "removed idle room");
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::geo::Coordinates;
-
-    fn dummy_location() -> Location {
-        Location {
-            pano_id: "pano".to_string(),
-            coordinates: Coordinates { lat: 0.0, lng: 0.0 },
-        }
-    }
-
-    fn insert(model: &mut Model, name: &str) -> (handle::Id, room::Id) {
-        let client_id = handle::Id::generate();
-        let (room_id, _) =
-            model.insert_new_room(dummy_location(), client_id.clone(), name.into(), None);
-        (client_id, room_id)
-    }
-
-    #[test]
-    fn new_room_is_idle() {
-        let mut model = Model::default();
-        let (_, room_id) = insert(&mut model, "canyon");
-        assert!(model.rooms[&room_id].is_idle());
-    }
-
-    #[test]
-    fn connect_then_disconnect_toggles_idle() {
-        let mut model = Model::default();
-        let (_, room_id) = insert(&mut model, "canyon");
-        let room = model.rooms.get_mut(&room_id).unwrap();
-        room.connect();
-        assert!(!room.is_idle());
-        room.disconnect();
-        assert!(room.is_idle());
-    }
-
-    #[test]
-    fn drop_if_idle_evicts_ghost_clients() {
-        let mut model = Model::default();
-        insert(&mut model, "canyon");
-        let (_, room_id) = insert(&mut model, "adin");
-        model.drop_room_if_idle(&room_id);
-        assert!(!model.rooms.contains_key(&room_id));
-        assert_eq!(model.clients.len(), 1);
-    }
-
-    #[test]
-    fn drop_if_idle_spares_live_room() {
-        let mut model = Model::default();
-        let (_, room_id) = insert(&mut model, "canyon");
-        model.rooms.get_mut(&room_id).unwrap().connect();
-        model.drop_room_if_idle(&room_id);
-        assert!(model.rooms.contains_key(&room_id));
-    }
-
-    #[test]
-    fn reinit_leaves_prior_room_idle_and_empty() {
-        let mut model = Model::default();
-        let client_id = handle::Id::generate();
-        let (first, _) =
-            model.insert_new_room(dummy_location(), client_id.clone(), "canyon".into(), None);
-
-        model.remove_client(&client_id);
-        let (second, _) = model.insert_new_room(dummy_location(), client_id, "canyon".into(), None);
-
-        assert_ne!(first, second);
-        let prior = &model.rooms[&first];
-        assert!(prior.is_idle());
-        assert!(prior.members.is_empty());
-        assert_eq!(model.rooms[&second].members.len(), 1);
     }
 }
