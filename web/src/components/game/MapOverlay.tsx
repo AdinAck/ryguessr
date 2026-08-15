@@ -40,7 +40,7 @@ export const MapOverlay = memo(function MapOverlay({
 
   const markerAudio = useMemo(() => {
     return new Audio("/audio/place-marker.mp3");
-  }, [selectedLocation]);
+  }, []);
 
   const lockAudio = useMemo(() => {
     return new Audio("/audio/lock-guess.mp3");
