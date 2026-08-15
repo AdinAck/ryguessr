@@ -130,7 +130,7 @@ const RoomSettings = () => {
       <div className="flex flex-row justify-between items-center">
         <p className="text-xl font-semibold">Room</p>
         <Button
-          className="bg-transparent hover:cursor-pointer border-1"
+          className="bg-transparent hover:cursor-pointer"
           onClick={() => settingsStateActions.updateSettingsVisibility(false)}
           variant={"secondary"}
         >
