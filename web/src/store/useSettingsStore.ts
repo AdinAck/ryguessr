@@ -34,6 +34,21 @@ type StreetviewState = {
   userNavigationEnabled: boolean;
 };
 
+type AudioState = {
+  markerAudioEnabled: boolean;
+  lockAudioEnabled: boolean;
+};
+
+type AudioStateAction = {
+  setMarkerAudioEnabled: (
+    markerAudioEnabled: AudioState["markerAudioEnabled"],
+  ) => void;
+
+  setLockAudioEnabled: (
+    lockAudioEnabled: AudioState["lockAudioEnabled"],
+  ) => void;
+};
+
 type StreetviewStateAction = {
   setPanningGesturesEnabled: (
     panningGesturesEnabled: StreetviewState["panningGesturesEnabled"],
@@ -57,6 +72,19 @@ type UserState = {
 type GameSession = {
   activeUsername: string;
   activeIconColor: string;
+};
+
+export const useAudioState = create<AudioState>(() => ({
+  markerAudioEnabled: true,
+  lockAudioEnabled: true,
+}));
+
+export const audioStateActions: AudioStateAction = {
+  setMarkerAudioEnabled: (markerAudioEnabled: boolean) =>
+    useAudioState.setState({ markerAudioEnabled }),
+
+  setLockAudioEnabled: (lockAudioEnabled: boolean) =>
+    useAudioState.setState({ lockAudioEnabled }),
 };
 
 export const useSettingsState = create<settingsState>(() => ({
