@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{Coordinates, geo::PanoId, handle};
+use crate::{Coordinates, geo::PanoId, handle, room};
 use axum::response::sse;
 use colors::Srgb8;
 use serde::Serialize;
@@ -55,6 +55,7 @@ pub enum RoomEvent {
         client_id: handle::Id,
         username: Username,
     },
+    ConfigUpdate(room::Config),
 }
 
 impl RoomEvent {
@@ -64,7 +65,7 @@ impl RoomEvent {
             Self::PlayerJoined { client_id, .. } | Self::PlayerLeft { client_id, .. } => {
                 Recipients::except_one(client_id.clone())
             }
-            Self::RoundStart(_) | Self::RoundEnd(_) => Recipients::All,
+            Self::RoundStart(_) | Self::RoundEnd(_) | Self::ConfigUpdate(_) => Recipients::All,
         }
     }
 }

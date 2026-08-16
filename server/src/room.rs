@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use colors::{Srgb8, srgb};
 use derive_more::{AsRef, Deref};
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use tokio::{sync::broadcast, task::JoinHandle};
 
 use crate::{
@@ -34,8 +35,6 @@ pub struct Room {
     /// A generator for distinct colors to assign to members of the room for frontend display purposes. The same color will be assigned to the same member across rounds, but different members will have different colors.
     pub colors: DistinctColors,
     /// The room's current [configuration](Config).
-    // Currently unused, but will be used to implement different game modes and constraints in the future.
-    #[allow(dead_code)]
     config: Config,
     /// The event sender handle for the room, used to broadcast events to all members of the room.
     pub event_tx: broadcast::Sender<EventEnvelope>,
@@ -71,7 +70,7 @@ impl Room {
             round: 0,
             location,
             colors,
-            config: Config {},
+            config: Config::default(),
             event_tx,
             active_connections: 0,
             cleanup_handle: None,
@@ -256,6 +255,11 @@ impl Room {
             member.guess = None;
         }
     }
+
+    pub fn set_config(&mut self, config: Config) {
+        self.config = config.clone();
+        let _ = self.event_tx.send(RoomEvent::ConfigUpdate(config).into());
+    }
 }
 
 /// The attributes of a member of a [`Room`].
@@ -336,4 +340,9 @@ impl FromIterator<char> for Id {
 }
 
 /// The configuration of a [`Room`].
-pub struct Config {}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Config {
+    /// Anything we dont care to deserialize
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
